@@ -117,6 +117,62 @@ def plot_users2(user_list, user_set_Im, virtual_center_x, virtual_center_y):
     # Show plot
     plt.show()
 
+def plot_users3(user_list, user_groups, virtual_center_list):
+    """
+    Plots all users, their convex hull, and highlights specific users groups within a circular region.
+
+    :param user_list: List of all user objects. Each user has `x` and `y` coordinates and an `id`.
+    :param user_set_Im: Subset of users (list) to be highlighted with the circular boundary.
+    :param virtual_center_list: X-Y coordinates of the centers of the circular regions.
+      """
+
+    # Extract coordinates of all users
+    user_coordinates = np.array([[user.x, user.y] for user in user_list])
+
+    # Begin plotting all users
+    plt.figure(figsize=(10, 10))
+
+    # Plot all users as points
+    plt.scatter(user_coordinates[:, 0], user_coordinates[:, 1], c='blue', label='All Users')
+    # Annotate points with user IDs
+    for user in user_list:
+        plt.text(user.x, user.y+0.2, f"{user.id}", fontsize=15, ha='center')
+
+    # Compute and plot convex hull
+    if len(user_coordinates) > 2:  # ConvexHull needs at least 3 points
+        hull = ConvexHull(user_coordinates)
+        for simplex in hull.simplices:
+            plt.plot(user_coordinates[simplex, 0], user_coordinates[simplex, 1], 'k-')
+        plt.plot(user_coordinates[hull.vertices, 0], user_coordinates[hull.vertices, 1], 'orange', linewidth=2,
+                 label="Convex Hull")
+    for user_sets in user_groups:
+        # Plot specific user_set_Im within circular boundary
+        user_set_Im_coords = np.array([[user.x, user.y] for user in user_sets])
+
+        virtual_center_index = user_groups.index(user_sets)
+        virtual_center_x, virtual_center_y = virtual_center_list[virtual_center_index]
+        # Plot circular boundary
+        if virtual_center_index == 1:
+            plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red', label="User Group")
+            circle = plt.Circle((virtual_center_x, virtual_center_y), BEAM_RADIUS, color='green', alpha=0.3,
+                                label="Beam Radius")
+        else:
+            plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red')
+            circle = plt.Circle((virtual_center_x, virtual_center_y), BEAM_RADIUS, color='green', alpha=0.3)
+        plt.text(virtual_center_x + 0.1, virtual_center_y + 0.1, "Center", fontsize=10, color='red')
+        plt.gca().add_patch(circle)
+        plt.scatter(virtual_center_x, virtual_center_y, c='green',marker = 'x')
+
+    # Add labels and legend
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.title("User Positions and Convex Hull")
+    plt.xlabel("X Coordinate")
+    plt.ylabel("Y Coordinate")
+    plt.legend()
+    plt.grid(True)
+
+    # Show plot
+    plt.show()
 
 def find_mimimum_circle_from_three_user(GUn1,GUn2,GUn3):
     if GUn1 == None or GUn2 == None or GUn3 == None:
@@ -144,7 +200,7 @@ def find_mimimum_circle_from_three_user(GUn1,GUn2,GUn3):
 
     return new_center, new_radius
 
-def minimum_enclosing_circle_based_group_position_update():
+def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Imc,):
 
     # a. Select two users from Im
     max_distance = 0
@@ -157,7 +213,7 @@ def minimum_enclosing_circle_based_group_position_update():
     radius = None
     if len(user_set_Im) < 2:
         print("Not enough users in Im to form a circle.")
-        return radius, center_x, center_y
+        return radius, center_x, center_y,user_set_Im,user_set_Imc
 
     for i in range(len(user_set_Im)):
         for j in range(i + 1, len(user_set_Im)):
@@ -193,7 +249,7 @@ def minimum_enclosing_circle_based_group_position_update():
             user_set_Im.append(user)
             print("User with Id: ",user.id," is appended to Im")
             print(len(temp_user_set)," Users are added to Im !!!!!####***ALGO COMPLETED!!!!!####***")
-            return radius, center_x, center_y
+            return radius, center_x, center_y,user_set_Im,user_set_Imc
     else:
         # c. Select an Ungrouped GU from Imc
         for user in list(user_set_Imc):
@@ -221,23 +277,24 @@ def minimum_enclosing_circle_based_group_position_update():
                     print("!!!!!####***ALGO COMPLETED!!!!!####***")
                     break
 
-    return radius, center_x, center_y
+    return radius, center_x, center_y, user_set_Im,user_set_Imc
 
 
 
 
 
 # a. Initialization
-user_set_Im = []  # Initialize list of user groups
-user_set_Imc = []
+
+
+boundary_users = []
+internal_users = []
+
 user_list = create_users(USER_NUMBER) # The list of all users
 user_coordinates = np.array([[user.x, user.y] for user in user_list])
 
 
 # b. Determine Boundary and Internal Users
 hull = ConvexHull(user_coordinates)
-boundary_users = []
-internal_users = []
 for user in user_list:
     if user.id in hull.vertices:
         boundary_users.append(user)
@@ -248,91 +305,109 @@ for user in user_list:
 distance_matrix = distance_matrix(user_coordinates,user_coordinates)
 distance_weights = np.sum(distance_matrix, axis=1)
 
-# d. Select the Ungrouped Boundary User with the Highest Distance Degree to initiate user grouping
-boundary_user_ids = [user.id for user in boundary_users]
-boundary_weights = [(user_id, distance_weights[user_id]) for user_id in boundary_user_ids]
-max_boundary_user = max(boundary_weights, key=lambda x: x[1])
-max_user_id, max_distance = max_boundary_user
-print(f"Boundary User with ID {max_user_id} has the highest distance degree: {max_distance}")
-
-# Remove user with ID max_user_id from boundary_users
-
-GUn0 = None
-for user in boundary_users:
-    if user.id == max_user_id:
-        GUn0 = user
-        break
-
-# Remove the user from boundary_users
-boundary_users.remove(GUn0)
-# Add the user to user_set_Im
-user_set_Im.append(GUn0)
-print("User with Id: ",GUn0.id," is added to Im")
 
 
-# e. Determine the users in Im
+def create_grouping():
+    # d. Select the Ungrouped Boundary User with the Highest Distance Degree to initiate user grouping
+    user_set_Im = []  # Initialize list of user groups
+    user_set_Imc = []
+    boundary_user_ids = [user.id for user in boundary_users]
+    boundary_weights = [(user_id, distance_weights[user_id]) for user_id in boundary_user_ids]
+    max_boundary_user = max(boundary_weights, key=lambda x: x[1])
+    max_user_id, max_distance = max_boundary_user
+    print(f"Boundary User with ID {max_user_id} has the highest distance degree: {max_distance}")
 
-for GUn in boundary_users:
-    if distance_matrix[GUn0.id, GUn.id] <= BEAM_RADIUS:
-        user_set_Im.append(GUn)
-        print("User With Id: ",GUn.id," is appended to Im")
-        boundary_users.remove(GUn)
-        
-# f. Determine Imc (the users that fall into region (r,2r]
-for GUn in boundary_users:
-    if BEAM_RADIUS < distance_matrix[GUn0.id, GUn.id] <=2*BEAM_RADIUS:
-        user_set_Imc.append(GUn) ## append to the last element
+    # Remove user with ID max_user_id from boundary_users
 
-print("Users in Im Initally")
-[user.print_user() for user in user_set_Im]
-print("Users in Imc Initally")
-[user.print_user() for user in user_set_Imc]
-print("Users in boundary_users Initally")
-[user.print_user() for user in boundary_users]
-print("Users in internal_users Initally")
-[user.print_user() for user in internal_users]
-
-
-# g. Move Cm to Cover as Many Candidate Users as Possible
-Cm_radius,Cm_x,Cm_y = minimum_enclosing_circle_based_group_position_update()
-
-
-if Cm_radius != None:
+    GUn0 = None
     for user in boundary_users:
-        if user in list(user_set_Imc):
-            distance_to_center = np.sqrt((user.x - Cm_x) ** 2 + (user.y - Cm_y) ** 2)
-            if distance_to_center <= Cm_radius:
-                user_set_Im.append(user)
-                print("User with Id: ",user.id," is appended to Im")
-                user_set_Imc.remove(user)
-                boundary_users.remove(user)
-            
-            
-virtual_center_x = np.mean([user.x for user in user_set_Im])
-virtual_center_y = np.mean([user.y for user in user_set_Im])
+        if user.id == max_user_id:
+            GUn0 = user
+            break
 
-for user in list(internal_users):
-    distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
-    if distance_to_center <= BEAM_RADIUS:
-        user_set_Im.append(user)
-        print("User with Id: ", user.id, " is appended to Im")
-        internal_users.remove(user)
-
-print("Users in Im Finally")
-[user.print_user() for user in user_set_Im]
-print("Users in Imc Finally")
-[user.print_user() for user in user_set_Imc]
-print("Users in boundary_users Finally")
-[user.print_user() for user in boundary_users]
-print("Users in internal_users Finally")
-[user.print_user() for user in internal_users]
+    # Remove the user from boundary_users
+    boundary_users.remove(GUn0)
+    # Add the user to user_set_Im
+    user_set_Im.append(GUn0)
+    print("User with Id: ",GUn0.id," is added to Im")
 
 
-plot_users2(user_list,user_set_Im,virtual_center_x,virtual_center_y)
+    # e. Determine the users in Im
+
+    for GUn in boundary_users:
+        if distance_matrix[GUn0.id, GUn.id] <= BEAM_RADIUS:
+            user_set_Im.append(GUn)
+            print("User With Id: ",GUn.id," is appended to Im")
+            boundary_users.remove(GUn)
+
+    # f. Determine Imc (the users that fall into region (r,2r]
+    for GUn in boundary_users:
+        if BEAM_RADIUS < distance_matrix[GUn0.id, GUn.id] <=2*BEAM_RADIUS:
+            user_set_Imc.append(GUn) ## append to the last element
+
+    print("Users in Im Initally")
+    [user.print_user() for user in user_set_Im]
+    print("Users in Imc Initally")
+    [user.print_user() for user in user_set_Imc]
+    print("Users in boundary_users Initally")
+    [user.print_user() for user in boundary_users]
+    print("Users in internal_users Initally")
+    [user.print_user() for user in internal_users]
 
 
+    # g. Move Cm to Cover as Many Candidate Users as Possible
+    Cm_radius,Cm_x,Cm_y, user_set_Im, user_set_Imc = minimum_enclosing_circle_based_group_position_update(user_set_Im, user_set_Imc)
 
-        
+
+    if Cm_radius != None:
+        for user in boundary_users:
+            if user in list(user_set_Imc):
+                distance_to_center = np.sqrt((user.x - Cm_x) ** 2 + (user.y - Cm_y) ** 2)
+                if distance_to_center <= Cm_radius:
+                    user_set_Im.append(user)
+                    print("User with Id: ",user.id," is appended to Im")
+                    user_set_Imc.remove(user)
+                    boundary_users.remove(user)
+
+
+    virtual_center_x = np.mean([user.x for user in user_set_Im])
+    virtual_center_y = np.mean([user.y for user in user_set_Im])
+
+    for user in list(internal_users):
+        distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
+        if distance_to_center <= BEAM_RADIUS:
+            user_set_Im.append(user)
+            print("User with Id: ", user.id, " is appended to Im")
+            internal_users.remove(user)
+
+    print("Users in Im Finally")
+    [user.print_user() for user in user_set_Im]
+    print("Users in Imc Finally")
+    [user.print_user() for user in user_set_Imc]
+    print("Users in boundary_users Finally")
+    [user.print_user() for user in boundary_users]
+    print("Users in internal_users Finally")
+    [user.print_user() for user in internal_users]
+
+    return user_set_Im,virtual_center_x,virtual_center_y
+
+
+user_groups = []
+virtual_centers = []
+while True:
+    if len(boundary_users) == 0:
+        break
+    user_set_1,virtual_center_x,virtual_center_y = create_grouping()
+    user_groups.append(user_set_1)
+    virtual_centers.append(np.array([virtual_center_x,virtual_center_y]))
+    #plot_users2(user_list,user_set_1,virtual_center_x,virtual_center_y)
+
+plot_users3(user_list,user_groups,virtual_centers)
+print("User Groups")
+for i,user_set in enumerate(user_groups):
+    print(f"User Group {i+1}:")
+    [user.print_user() for user in user_set]
+
 
 
 
