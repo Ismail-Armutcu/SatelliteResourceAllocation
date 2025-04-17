@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 USER_NUMBER = 100
-BEAM_RADIUS = 2
+BEAM_RADIUS = 3
 
 class User:
     def __init__(self, user_id, x, y):
@@ -327,6 +327,16 @@ def create_grouping():
     print("Users in internal_users Initally")
     [user.print_user() for user in internal_users]
 
+    virtual_center_x = np.mean([user.x for user in user_set_Im])
+    virtual_center_y = np.mean([user.y for user in user_set_Im])
+
+    for user in list(internal_users):
+        distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
+        if distance_to_center <= BEAM_RADIUS:
+            user_set_Im.append(user)
+            print("User with Id: ", user.id, " is appended to Im")
+            internal_users.remove(user)
+
 
     # g. Move Cm to Cover as Many Candidate Users as Possible
     Cm_radius,Cm_x,Cm_y, user_set_Im, user_set_Imc = minimum_enclosing_circle_based_group_position_update(user_set_Im, user_set_Imc)
@@ -342,7 +352,6 @@ def create_grouping():
                     user_set_Imc.remove(user)
                     boundary_users.remove(user)
 
-
     virtual_center_x = np.mean([user.x for user in user_set_Im])
     virtual_center_y = np.mean([user.y for user in user_set_Im])
 
@@ -352,6 +361,8 @@ def create_grouping():
             user_set_Im.append(user)
             print("User with Id: ", user.id, " is appended to Im")
             internal_users.remove(user)
+
+
 
     print("Users in Im Finally")
     [user.print_user() for user in user_set_Im]
