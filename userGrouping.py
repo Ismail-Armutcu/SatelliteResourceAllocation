@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 USER_NUMBER = 100
-BEAM_RADIUS = 3
+BEAM_RADIUS = 2
 
 class User:
     def __init__(self, user_id, x, y):
@@ -143,7 +143,9 @@ def plot_users3(user_list, user_groups, virtual_center_list):
         hull = ConvexHull(user_coordinates)
         for simplex in hull.simplices:
             plt.plot(user_coordinates[simplex, 0], user_coordinates[simplex, 1], 'k-')
-        plt.plot(user_coordinates[hull.vertices, 0], user_coordinates[hull.vertices, 1], 'orange', linewidth=2,
+        vertices = list(hull.vertices)
+        vertices.append(vertices[0])
+        plt.plot(user_coordinates[vertices, 0], user_coordinates[vertices, 1], 'orange', linewidth=2,
                  label="Convex Hull")
     for user_sets in user_groups:
         # Plot specific user_set_Im within circular boundary
@@ -200,7 +202,7 @@ def find_mimimum_circle_from_three_user(GUn1,GUn2,GUn3):
 
     return new_center, new_radius
 
-def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Imc,):
+def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Imc,boundary_users,internal_users):
 
     # a. Select two users from Im
     max_distance = 0
@@ -213,7 +215,7 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
     radius = None
     if len(user_set_Im) < 2:
         print("Not enough users in Im to form a circle.")
-        return radius, center_x, center_y,user_set_Im,user_set_Imc
+        return radius, center_x, center_y
 
     for i in range(len(user_set_Im)-1):
         for j in range(i + 1, len(user_set_Im)):
@@ -249,7 +251,7 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
             user_set_Im.append(user)
             print("User with Id: ",user.id," is appended to Im")
             print(len(temp_user_set)," Users are added to Im !!!!!####***ALGO COMPLETED!!!!!####***")
-        return radius, center_x, center_y,user_set_Im,user_set_Imc
+        return radius, center_x, center_y
     else:
         # c. Select an Ungrouped GU from Imc
         for user in list(user_set_Imc):
@@ -277,7 +279,7 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
                     print("!!!!!####***ALGO COMPLETED!!!!!####***")
                     break
 
-    return radius, center_x, center_y, user_set_Im,user_set_Imc
+    return radius, center_x, center_y
 
 
 def create_grouping():
@@ -339,7 +341,7 @@ def create_grouping():
 
 
     # g. Move Cm to Cover as Many Candidate Users as Possible
-    Cm_radius,Cm_x,Cm_y, user_set_Im, user_set_Imc = minimum_enclosing_circle_based_group_position_update(user_set_Im, user_set_Imc)
+    Cm_radius,Cm_x,Cm_y= minimum_enclosing_circle_based_group_position_update(user_set_Im, user_set_Imc, boundary_users,internal_users)
 
 
     if Cm_radius != None:
@@ -409,6 +411,13 @@ while True:
     user_groups.append(user_set_1)
     virtual_centers.append(np.array([virtual_center_x,virtual_center_y]))
     #plot_users2(user_list,user_set_1,virtual_center_x,virtual_center_y)
+
+if len(internal_users) != 0:
+    print("!!!!*****####Internal Users Will be Grouped Seperately!!!!*****####")
+
+
+
+
 
 plot_users3(user_list,user_groups,virtual_centers)
 print("User Groups")
