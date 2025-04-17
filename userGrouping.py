@@ -122,7 +122,7 @@ def plot_users3(user_list, user_groups, virtual_center_list):
     Plots all users, their convex hull, and highlights specific users groups within a circular region.
 
     :param user_list: List of all user objects. Each user has `x` and `y` coordinates and an `id`.
-    :param user_set_Im: Subset of users (list) to be highlighted with the circular boundary.
+    :param user_groups: Subset of users (list) to be highlighted with the circular boundary.
     :param virtual_center_list: X-Y coordinates of the centers of the circular regions.
       """
 
@@ -215,7 +215,7 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
         print("Not enough users in Im to form a circle.")
         return radius, center_x, center_y,user_set_Im,user_set_Imc
 
-    for i in range(len(user_set_Im)):
+    for i in range(len(user_set_Im)-1):
         for j in range(i + 1, len(user_set_Im)):
             user1, user2 = user_set_Im[i], user_set_Im[j]
             distance = distance_matrix[user1.id, user2.id]
@@ -249,7 +249,7 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
             user_set_Im.append(user)
             print("User with Id: ",user.id," is appended to Im")
             print(len(temp_user_set)," Users are added to Im !!!!!####***ALGO COMPLETED!!!!!####***")
-            return radius, center_x, center_y,user_set_Im,user_set_Imc
+        return radius, center_x, center_y,user_set_Im,user_set_Imc
     else:
         # c. Select an Ungrouped GU from Imc
         for user in list(user_set_Imc):
@@ -280,33 +280,6 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
     return radius, center_x, center_y, user_set_Im,user_set_Imc
 
 
-
-
-
-# a. Initialization
-
-
-boundary_users = []
-internal_users = []
-
-user_list = create_users(USER_NUMBER) # The list of all users
-user_coordinates = np.array([[user.x, user.y] for user in user_list])
-
-
-# b. Determine Boundary and Internal Users
-hull = ConvexHull(user_coordinates)
-for user in user_list:
-    if user.id in hull.vertices:
-        boundary_users.append(user)
-    else:
-        internal_users.append(user)
-
-# c. Evaluate the Distance Degrees of GUs
-distance_matrix = distance_matrix(user_coordinates,user_coordinates)
-distance_weights = np.sum(distance_matrix, axis=1)
-
-
-
 def create_grouping():
     # d. Select the Ungrouped Boundary User with the Highest Distance Degree to initiate user grouping
     user_set_Im = []  # Initialize list of user groups
@@ -334,7 +307,7 @@ def create_grouping():
 
     # e. Determine the users in Im
 
-    for GUn in boundary_users:
+    for GUn in list(boundary_users):
         if distance_matrix[GUn0.id, GUn.id] <= BEAM_RADIUS:
             user_set_Im.append(GUn)
             print("User With Id: ",GUn.id," is appended to Im")
@@ -391,6 +364,30 @@ def create_grouping():
 
     return user_set_Im,virtual_center_x,virtual_center_y
 
+
+
+
+# a. Initialization
+
+
+boundary_users = []
+internal_users = []
+
+user_list = create_users(USER_NUMBER) # The list of all users
+user_coordinates = np.array([[user.x, user.y] for user in user_list])
+
+
+# b. Determine Boundary and Internal Users
+hull = ConvexHull(user_coordinates)
+for user in user_list:
+    if user.id in hull.vertices:
+        boundary_users.append(user)
+    else:
+        internal_users.append(user)
+
+# c. Evaluate the Distance Degrees of GUs
+distance_matrix = distance_matrix(user_coordinates,user_coordinates)
+distance_weights = np.sum(distance_matrix, axis=1)
 
 user_groups = []
 virtual_centers = []
