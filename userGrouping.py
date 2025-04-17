@@ -381,6 +381,33 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
     return user_set_Im,virtual_center_x,virtual_center_y
 
 
+def group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_matrix_var,user_groups,virtual_centers):
+    while len(ungrouped_users) != 0:
+        user_set_Im = []
+        user_ids = [user.id for user in ungrouped_users]
+        user_weights = [(user_id, distance_weights[user_id]) for user_id in user_ids]
+        most_distant_user = min(user_weights, key=lambda x: x[1])
+        max_user_id, max_distance = most_distant_user
+        print(f"Boundary User with ID {max_user_id} has the highest distance degree: {max_distance}")
+
+        least_distant_user = None
+        for user in ungrouped_users:
+            if user.id == max_user_id:
+                least_distant_user = user
+                ungrouped_users.remove(user)
+                user_set_Im.append(user)
+                break
+
+        for user in list(ungrouped_users):
+            if distance_matrix_var[least_distant_user.id, user.id] < BEAM_RADIUS:
+                user_set_Im.append(user)
+                ungrouped_users.remove(user)
+
+        virtual_center_x = np.mean([user.x for user in user_set_Im])
+        virtual_center_y = np.mean([user.y for user in user_set_Im])
+
+        user_groups.append(user_set_Im)
+        virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
 
 
 # a. Initialization
@@ -418,56 +445,14 @@ plot_users3(user_list,user_groups,virtual_centers)
 
 if len(internal_users) != 0:
     print("!!!!*****####Internal Users Will be Grouped Seperately!!!!*****####")
-    temp_user_list = internal_users
     ungrouped_users = internal_users
     internal_users = []
-    user_coordinates =[]
-    temp_user_groups = []
-    temp_virtual_centers = []
-    #user_coordinates = np.array([[user.x, user.y] for user in temp_user_list])
-    #distance_matrix_var = distance_matrix(user_coordinates, user_coordinates)
-    #distance_weights = np.sum(distance_matrix_var, axis=1)
+    group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_matrix_var,user_groups,virtual_centers)
 
-    while len(ungrouped_users) != 0:
-        user_set_Im = []
-        user_ids = [user.id for user in ungrouped_users]
-        user_weights = [(user_id, distance_weights[user_id]) for user_id in user_ids]
-        most_distant_user = min(user_weights, key=lambda x: x[1])
-        max_user_id, max_distance = most_distant_user
-        print(f"Boundary User with ID {max_user_id} has the highest distance degree: {max_distance}")
 
-        GUn0 = None
-        for user in ungrouped_users:
-            if user.id == max_user_id:
-                GUn0 = user
-                ungrouped_users.remove(user)
-                user_set_Im.append(user)
-                break
-
-        for user in list(ungrouped_users):
-            if distance_matrix_var[GUn0.id, user.id] < BEAM_RADIUS:
-                user_set_Im.append(user)
-                ungrouped_users.remove(user)
-
-        virtual_center_x = np.mean([user.x for user in user_set_Im])
-        virtual_center_y = np.mean([user.y for user in user_set_Im])
-
-        # temp_user_groups.append(user_set_Im)
-        # temp_virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
-        user_groups.append(user_set_Im)
-        virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
-
-    print("User Groups xx")
-    for i, user_set in enumerate(temp_user_groups):
+    print("User Groups")
+    for i, user_set in enumerate(user_groups):
         print(f"User Group {i + 1}:")
         [user.print_user() for user in user_set]
 
-    # plot_users3(temp_user_list, temp_user_groups, temp_virtual_centers)
     plot_users3(user_list, user_groups, virtual_centers)
-
-
-
-# print(distance_matrix)
-# print(distance_weights)
-# print(boundary_user_ids)
-
