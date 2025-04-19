@@ -457,80 +457,61 @@ def perform_user_switching(user_groups, virtual_centers):
     return  new_virtual_centers
 
 
-# a. Initialization
-
-
-boundary_users = []
-internal_users = []
-
-user_list = utils.generate_users() # The list of all users
-user_coordinates = np.array([[user.x, user.y] for user in user_list])
-
-# b. Determine Boundary and Internal Users
-hull = ConvexHull(user_coordinates)
-for user in user_list:
-    if user.id in hull.vertices:
-        boundary_users.append(user)
-    else:
-        internal_users.append(user)
-
-# c. Evaluate the Distance Degrees of GUs
-distance_matrix_var = distance_matrix(user_coordinates,user_coordinates)
-distance_weights = np.sum(distance_matrix_var, axis=1)
-
-user_groups = []
-virtual_centers = []
-while True:
-    if len(boundary_users) == 0:
-        break
-    user_set_1,virtual_center_x,virtual_center_y = create_grouping(boundary_users, internal_users, distance_weights, distance_matrix_var)
-    user_groups.append(user_set_1)
-    virtual_centers.append(np.array([virtual_center_x,virtual_center_y]))
-    #plot_users2(user_list,user_set_1,virtual_center_x,virtual_center_y)
-
-plot_users3(user_list,user_groups,virtual_centers)
-
-if len(internal_users) != 0:
-    print("!!!!*****####Internal Users Will be Grouped Separately!!!!*****####")
-    ungrouped_users = internal_users
+def group_users():
+    # a. Initialization
+    boundary_users = []
     internal_users = []
-    group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_matrix_var,user_groups,virtual_centers)
+    user_list = utils.generate_users()  # The list of all users
+    user_coordinates = np.array([[user.x, user.y] for user in user_list])
+    # b. Determine Boundary and Internal Users
+    hull = ConvexHull(user_coordinates)
+    for user in user_list:
+        if user.id in hull.vertices:
+            boundary_users.append(user)
+        else:
+            internal_users.append(user)
+    # c. Evaluate the Distance Degrees of GUs
+    distance_matrix_var = distance_matrix(user_coordinates, user_coordinates)
+    distance_weights = np.sum(distance_matrix_var, axis=1)
+    user_groups = []
+    virtual_centers = []
+    while True:
+        if len(boundary_users) == 0:
+            break
+        user_set_1, virtual_center_x, virtual_center_y = create_grouping(boundary_users, internal_users,
+                                                                         distance_weights, distance_matrix_var)
+        user_groups.append(user_set_1)
+        virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
+        # plot_users2(user_list,user_set_1,virtual_center_x,virtual_center_y)
     plot_users3(user_list, user_groups, virtual_centers)
+    if len(internal_users) != 0:
+        print("!!!!*****####Internal Users Will be Grouped Separately!!!!*****####")
+        ungrouped_users = internal_users
+        internal_users = []
+        group_ungrouped_internal_users(ungrouped_users, distance_weights, distance_matrix_var, user_groups,
+                                       virtual_centers)
+        plot_users3(user_list, user_groups, virtual_centers)
+    print("User Groups")
+    for i, user_set in enumerate(user_groups):
+        print(f"User Group {i + 1} With {len(user_set)} Users:")
+        [user.print_user() for user in user_set]
+    # Create an array of the lengths of each user group
+    user_group_lengths_before = [len(user_set) for user_set in user_groups]
+    new_virtual_centers = perform_user_switching(user_groups, virtual_centers)
+    plot_users3(user_list, user_groups, new_virtual_centers)
+    user_group_lengths_after = [len(user_set) for user_set in user_groups]
+    print(f"Lengths of user groups before switching: {user_group_lengths_before}")
+    print(f"Lengths of user groups after switching: {user_group_lengths_after}")
+    # Plot user group lengths before and after switching
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, len(user_group_lengths_before) + 1), user_group_lengths_before, label="Before Switching",
+             marker='x')
+    plt.plot(range(1, len(user_group_lengths_after) + 1), user_group_lengths_after, label="After Switching", marker='o')
+    plt.xlabel("User Group Index")
+    plt.ylabel("Number of Users")
+    plt.title("User Group Sizes Before and After Switching")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
-print("User Groups")
-for i, user_set in enumerate(user_groups):
-    print(f"User Group {i + 1} With {len(user_set)} Users:")
-    [user.print_user() for user in user_set]
-
-# Create an array of the lengths of each user group
-user_group_lengths_before = [len(user_set) for user_set in user_groups]
-
-new_virtual_centers = perform_user_switching(user_groups,virtual_centers)
-plot_users3(user_list,user_groups,new_virtual_centers)
-
-user_group_lengths_after = [len(user_set) for user_set in user_groups]
-print(f"Lengths of user groups before switching: {user_group_lengths_before}")
-print(f"Lengths of user groups after switching: {user_group_lengths_after}")
-
-
-# Plot user group lengths before and after switching
-plt.figure(figsize=(10, 6))
-plt.plot(range(1, len(user_group_lengths_before) + 1), user_group_lengths_before, label="Before Switching", marker='x')
-plt.plot(range(1, len(user_group_lengths_after) + 1), user_group_lengths_after, label="After Switching", marker='o')
-plt.xlabel("User Group Index")
-plt.ylabel("Number of Users")
-plt.title("User Group Sizes Before and After Switching")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-
-
-
-
-
-
-
-
-
+    return user_groups, new_virtual_centers
