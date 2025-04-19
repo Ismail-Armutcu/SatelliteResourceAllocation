@@ -2,36 +2,9 @@ from scipy.spatial import ConvexHull
 from scipy.spatial import distance_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+import utils
 
-USER_NUMBER = 100
-BEAM_RADIUS = 2
-USER_SWITCHING_THRESHOLD_HEAVY = 8
-USER_SWITCHING_THRESHOLD_LIGHT= 2
 
-class User:
-    def __init__(self, user_id, x, y):
-        self.id = user_id
-        self.x = x
-        self.y = y
-
-    def coords(self):
-        return np.array([self.x, self.y])
-
-    def matches_coords(self, coord):
-        """
-        Returns True if the given coordinate matches this user's coordinates.
-        """
-        return np.allclose(coord, self.coords())
-    def print_user(self):
-        print("User Id: ",self.id," x_coord: ",self.x," y_coord: ",self.y)
-
-def create_users(user_number):
-    rng = np.random.default_rng()
-    user_coords = rng.random((user_number, 2)) * 10  # 30 random points in 2-D, coordinates in range (0,10]
-    user_list = []
-    for i in range(user_number):
-        user_list.append(User(i,user_coords[i][0],user_coords[i][1]))
-    return user_list
 
 def plot_users(user_list):
     x_coords = [user.x for user in user_list]
@@ -102,7 +75,7 @@ def plot_users2(user_list, user_set_Im, virtual_center_x, virtual_center_y):
     plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red', label="Users in Im")
 
     # Plot circular boundary
-    circle = plt.Circle((virtual_center_x, virtual_center_y), BEAM_RADIUS, color='green', alpha=0.3,
+    circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3,
                         label="Beam Radius")
     plt.text(virtual_center_x + 0.1, virtual_center_y + 0.1, "Center", fontsize=10, color='red')
     plt.gca().add_patch(circle)
@@ -160,11 +133,11 @@ def plot_users3(user_list, user_groups, virtual_center_list):
         # Plot circular boundary
         if virtual_center_index == 1:
             plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red', label="User Group")
-            circle = plt.Circle((virtual_center_x, virtual_center_y), BEAM_RADIUS, color='green', alpha=0.3,
+            circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3,
                                 label="Beam Radius")
         else:
             plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red')
-            circle = plt.Circle((virtual_center_x, virtual_center_y), BEAM_RADIUS, color='green', alpha=0.3)
+            circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3)
         plt.text(virtual_center_x + 0.1, virtual_center_y + 0.1, "Center", fontsize=10, color='red')
         plt.gca().add_patch(circle)
         plt.scatter(virtual_center_x, virtual_center_y, c='green',marker = 'x')
@@ -180,14 +153,14 @@ def plot_users3(user_list, user_groups, virtual_center_list):
     # Show plot
     plt.show()
 
-def find_mimimum_circle_from_three_user(GUn1,GUn2,GUn3):
+def find_minimum_circle_from_three_user(GUn1, GUn2, GUn3):
     if GUn1 == None or GUn2 == None or GUn3 == None:
         print("One of the users is None!!!!")
     A = np.array([GUn1.x, GUn1.y])
     B = np.array([GUn2.x, GUn2.y])
     C = np.array([GUn3.x, GUn3.y])
 
-    # Calculate circumcenter
+    # Calculate circum center
     D = 2 * (A[0] * (B[1] - C[1]) + B[0] * (C[1] - A[1]) + C[0] * (A[1] - B[1]))
     if np.abs(D) < 1e-10:  # Handling degenerate case if the points are collinear
         print("The points are collinear; cannot form a circle.")
@@ -208,7 +181,7 @@ def find_mimimum_circle_from_three_user(GUn1,GUn2,GUn3):
 
 def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Imc,boundary_users,internal_users):
 
-    # a. Select two users from Im
+    # a. Select two users from I_m
     max_distance = 0
     farthest_users = (None, None)
     GUn1 = None
@@ -261,13 +234,13 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
         for user in list(user_set_Imc):
             GUn3 = None
             distance_to_center = np.sqrt((user.x - center_x) ** 2 + (user.y - center_y) ** 2)
-            if distance_to_center > BEAM_RADIUS:
+            if distance_to_center > utils.BEAM_RADIUS:
                 GUn3 = user
 
             if GUn3 is not None:
                 # Form a circle that covers GUn1, GUn2, and GUn3
                 user_set_Imc.remove(GUn3)
-                new_center,new_radius = find_mimimum_circle_from_three_user(GUn1,GUn2, GUn3)
+                new_center,new_radius = find_minimum_circle_from_three_user(GUn1, GUn2, GUn3)
                 GUn1.print_user()
                 GUn2.print_user()
                 GUn3.print_user()
@@ -276,7 +249,7 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
                 center_x = new_center[0]
                 center_y = new_center[1]
 
-                if new_radius <= BEAM_RADIUS:
+                if new_radius <= utils.BEAM_RADIUS:
                     user_set_Im.append(GUn3)
                     print("User with Id: ", GUn3.id, "is appended to Im")
                 if len(user_set_Imc) == 0:
@@ -314,23 +287,23 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
     # e. Determine the users in Im
 
     for GUn in list(boundary_users):
-        if distance_matrix_var[GUn0.id, GUn.id] <= BEAM_RADIUS:
+        if distance_matrix_var[GUn0.id, GUn.id] <= utils.BEAM_RADIUS:
             user_set_Im.append(GUn)
             print("User With Id: ",GUn.id," is appended to Im")
             boundary_users.remove(GUn)
 
     # f. Determine Imc (the users that fall into region (r,2r]
     for GUn in boundary_users:
-        if BEAM_RADIUS < distance_matrix_var[GUn0.id, GUn.id] <=2*BEAM_RADIUS:
+        if utils.BEAM_RADIUS < distance_matrix_var[GUn0.id, GUn.id] <=2*utils.BEAM_RADIUS:
             user_set_Imc.append(GUn) ## append to the last element
 
-    print("Users in Im Initally")
+    print("Users in Im Initially")
     [user.print_user() for user in user_set_Im]
-    print("Users in Imc Initally")
+    print("Users in Imc Initially")
     [user.print_user() for user in user_set_Imc]
-    print("Users in boundary_users Initally")
+    print("Users in boundary_users Initially")
     [user.print_user() for user in boundary_users]
-    print("Users in internal_users Initally")
+    print("Users in internal_users Initially")
     [user.print_user() for user in internal_users]
 
     virtual_center_x = np.mean([user.x for user in user_set_Im])
@@ -338,7 +311,7 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
 
     for user in list(internal_users):
         distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
-        if distance_to_center <= BEAM_RADIUS:
+        if distance_to_center <= utils.BEAM_RADIUS:
             user_set_Im.append(user)
             print("User with Id: ", user.id, " is appended to Im")
             internal_users.remove(user)
@@ -363,7 +336,7 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
 
     for user in list(internal_users):
         distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
-        if distance_to_center <= BEAM_RADIUS:
+        if distance_to_center <= utils.BEAM_RADIUS:
             user_set_Im.append(user)
             print("User with Id: ", user.id, " is appended to Im")
             internal_users.remove(user)
@@ -400,7 +373,7 @@ def group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_mat
                 break
 
         for user in list(ungrouped_users):
-            if distance_matrix_var[least_distant_user.id, user.id] < BEAM_RADIUS:
+            if distance_matrix_var[least_distant_user.id, user.id] < utils.BEAM_RADIUS:
                 user_set_Im.append(user)
                 ungrouped_users.remove(user)
 
@@ -414,11 +387,11 @@ def perform_user_switching(user_groups, virtual_centers):
     for i in range(len(user_groups) - 1):
         candidate_target_groups = []
         for j in range(i + 1, len(user_groups)):
-            if (len(user_groups[i]) >= USER_SWITCHING_THRESHOLD_HEAVY and
-                    len(user_groups[j]) <= USER_SWITCHING_THRESHOLD_LIGHT):
+            if (len(user_groups[i]) >= utils.USER_SWITCHING_THRESHOLD_HEAVY and
+                    len(user_groups[j]) <= utils.USER_SWITCHING_THRESHOLD_LIGHT):
                 for user in user_groups[i]:
                     distance = np.sqrt((user.x - virtual_centers[j][0]) ** 2 + (user.y - virtual_centers[j][1]) ** 2)
-                    if distance <= BEAM_RADIUS:
+                    if distance <= utils.BEAM_RADIUS:
                         candidate_target_groups.append((j, user_groups[j]))
                         break
 
@@ -437,7 +410,7 @@ def perform_user_switching(user_groups, virtual_centers):
             for switching_user in user_groups[i]:
                 distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (
                             switching_user.y - virtual_centers[target_group_id][1]) ** 2)
-                if distance <= BEAM_RADIUS:
+                if distance <= utils.BEAM_RADIUS:
                     candidate_switching_users.append(switching_user)
             l_max = (len(user_groups[i]) - len(target_group)) // 2
             l_switch = max(1, min(l_max, len(candidate_switching_users)))
@@ -462,7 +435,7 @@ def perform_user_switching(user_groups, virtual_centers):
             for switching_user in user_groups[i]:
                 distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (
                         switching_user.y - virtual_centers[target_group_id][1]) ** 2)
-                if distance <= BEAM_RADIUS:
+                if distance <= utils.BEAM_RADIUS:
                     candidate_switching_users.append(switching_user)
             l_max = (len(user_groups[i]) - len(target_group)) // 2
             l_switch = max(1, min(l_max, len(candidate_switching_users)))
@@ -490,7 +463,7 @@ def perform_user_switching(user_groups, virtual_centers):
 boundary_users = []
 internal_users = []
 
-user_list = create_users(USER_NUMBER) # The list of all users
+user_list = utils.generate_users() # The list of all users
 user_coordinates = np.array([[user.x, user.y] for user in user_list])
 
 # b. Determine Boundary and Internal Users
@@ -518,7 +491,7 @@ while True:
 plot_users3(user_list,user_groups,virtual_centers)
 
 if len(internal_users) != 0:
-    print("!!!!*****####Internal Users Will be Grouped Seperately!!!!*****####")
+    print("!!!!*****####Internal Users Will be Grouped Separately!!!!*****####")
     ungrouped_users = internal_users
     internal_users = []
     group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_matrix_var,user_groups,virtual_centers)
