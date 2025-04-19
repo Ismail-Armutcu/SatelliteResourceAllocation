@@ -2,10 +2,11 @@ import numpy as np
 
 USER_NUMBER = 100
 USER_AREA = 10 #km
-TOTAL_SLOTS = 10
+TOTAL_SLOTS = 30
 BEAM_RADIUS = 2
 USER_SWITCHING_THRESHOLD_HEAVY = 8
 USER_SWITCHING_THRESHOLD_LIGHT= 2
+TOTAL_BEAM_NUMBER = 4
 
 class User:
     def __init__(self, uid, x, y,
@@ -47,8 +48,7 @@ def generate_users():
     area_side_km = USER_AREA
     slot_count = TOTAL_SLOTS
     tau = 1.0  #slot length (s) – only matters for plotting
-    size_range = (1, 20)
-    weight_vals = (1, 2, 3)
+    size_range = (0.1, 1.5)
     rng = None
 
 
@@ -60,7 +60,7 @@ def generate_users():
     sizes = rng.uniform(*size_range, n_users)
 
     # weights: pick from {1,2,3} or make them continuous
-    weights = rng.choice(weight_vals, n_users)
+    weights = rng.integers(1, 10, n_users)
 
     # deadline slots: at least 2 slots after start and 2 before end
     deadlines = rng.integers(2, slot_count-1, n_users)
