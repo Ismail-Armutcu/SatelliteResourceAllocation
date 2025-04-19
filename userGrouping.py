@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 USER_NUMBER = 100
-BEAM_RADIUS = 3
+BEAM_RADIUS = 2
 USER_SWITCHING_THRESHOLD_HEAVY = 8
 USER_SWITCHING_THRESHOLD_LIGHT= 2
 
@@ -410,6 +410,79 @@ def group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_mat
         user_groups.append(user_set_Im)
         virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
 
+def perform_user_switching(user_groups, virtual_centers):
+    for i in range(len(user_groups) - 1):
+        candidate_target_groups = []
+        for j in range(i + 1, len(user_groups)):
+            if (len(user_groups[i]) >= USER_SWITCHING_THRESHOLD_HEAVY and
+                    len(user_groups[j]) <= USER_SWITCHING_THRESHOLD_LIGHT):
+                for user in user_groups[i]:
+                    distance = np.sqrt((user.x - virtual_centers[j][0]) ** 2 + (user.y - virtual_centers[j][1]) ** 2)
+                    if distance <= BEAM_RADIUS:
+                        candidate_target_groups.append((j, user_groups[j]))
+                        break
+
+        for candidate in candidate_target_groups:
+            print(candidate[0])
+            for candidate_user in candidate[1]:
+                print("\t", candidate_user.id)
+
+        if len(candidate_target_groups) == 0:
+            print("No candidate target groups found.")
+            continue
+        elif len(candidate_target_groups) == 1:
+            # select the only candidate
+            candidate_switching_users = []
+            [target_group_id, target_group] = candidate_target_groups.pop()
+            for switching_user in user_groups[i]:
+                distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (
+                            switching_user.y - virtual_centers[target_group_id][1]) ** 2)
+                if distance <= BEAM_RADIUS:
+                    candidate_switching_users.append(switching_user)
+            l_max = (len(user_groups[i]) - len(target_group)) // 2
+            l_switch = max(1, min(l_max, len(candidate_switching_users)))
+            print(
+                f"Only one candidate target group found. l_max:{l_max}, l_switch:{l_switch} "
+                f"size_user_group:{len(user_groups[i])} "
+                f"size_target_group:{len(target_group)} size_Switching_users:{len(candidate_switching_users)}")
+            candidate_switching_users = candidate_switching_users[:l_switch]
+            for switching_user in candidate_switching_users:
+                user_groups[i].remove(switching_user)
+                target_group.append(switching_user)
+                print(f"Switched User {switching_user.id} from User Group {i + 1} to User Group {target_group_id + 1}")
+
+
+
+        elif len(candidate_target_groups) > 1:
+            # Find the candidate group ID with the smallest number of elements
+            candidate_switching_users = []
+            candidate_target_groups.sort(key=lambda c: len(c[1]))
+            [target_group_id, target_group] = candidate_target_groups[0]
+            print(f"Selected Target Group ID: {target_group_id}")
+            for switching_user in user_groups[i]:
+                distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (
+                        switching_user.y - virtual_centers[target_group_id][1]) ** 2)
+                if distance <= BEAM_RADIUS:
+                    candidate_switching_users.append(switching_user)
+            l_max = (len(user_groups[i]) - len(target_group)) // 2
+            l_switch = max(1, min(l_max, len(candidate_switching_users)))
+            print(
+                f"Multiple target group found. l_max:{l_max}, l_switch:{l_switch} size_user_group:{len(user_groups[i])} "
+                f"size_target_group:{len(target_group)} size_Switching_users:{len(candidate_switching_users)}")
+
+            candidate_switching_users = candidate_switching_users[:l_switch]
+            for switching_user in candidate_switching_users:
+                user_groups[i].remove(switching_user)
+                target_group.append(switching_user)
+                print(f"Switched User {switching_user.id} from User Group {i + 1} to User Group {target_group_id + 1}")
+
+    new_virtual_centers = []
+    for user_group in user_groups:
+        virtual_center_x = np.mean([user.x for user in user_group])
+        virtual_center_y = np.mean([user.y for user in user_group])
+        new_virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
+    return  new_virtual_centers
+
 
 # a. Initialization
 
@@ -459,80 +532,9 @@ for i, user_set in enumerate(user_groups):
 # Create an array of the lengths of each user group
 user_group_lengths_before = [len(user_set) for user_set in user_groups]
 
-
-for i in range(len(user_groups) - 1):
-    candidate_target_groups = []
-    for j in range(i + 1, len(user_groups)):
-        if (len(user_groups[i]) >= USER_SWITCHING_THRESHOLD_HEAVY and
-                len(user_groups[j]) <= USER_SWITCHING_THRESHOLD_LIGHT):
-            for user in user_groups[i]:
-                distance = np.sqrt((user.x - virtual_centers[j][0]) ** 2 + (user.y - virtual_centers[j][1]) ** 2)
-                if distance <= BEAM_RADIUS:
-                    candidate_target_groups.append((j, user_groups[j]))
-                    break
-
-    for candidate in candidate_target_groups:
-        print(candidate[0])
-        for candidate_user in candidate[1]:
-            print("\t", candidate_user.id)
-                    
-    if len(candidate_target_groups) == 0:
-        print("No candidate target groups found.")
-        continue
-    elif len(candidate_target_groups) == 1:
-        # select the only candidate
-        candidate_switching_users = []
-        [target_group_id,target_group] = candidate_target_groups.pop()
-        for switching_user in user_groups[i]:
-            distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (switching_user.y - virtual_centers[target_group_id][1]) ** 2)
-            if distance <= BEAM_RADIUS:
-                candidate_switching_users.append(switching_user)
-        l_max = (len(user_groups[i]) - len(target_group)) // 2
-        l_switch = max(1, min(l_max, len(candidate_switching_users)))
-        print(
-            f"Only one candidate target group found. l_max:{l_max}, l_switch:{l_switch} "
-            f"size_user_group:{len(user_groups[i])} "
-            f"size_target_group:{len(target_group)} size_Switching_users:{len(candidate_switching_users)}")
-        candidate_switching_users = candidate_switching_users[:l_switch]
-        for switching_user in candidate_switching_users:
-            user_groups[i].remove(switching_user)
-            target_group.append(switching_user)
-            print(f"Switched User {switching_user.id} from User Group {i + 1} to User Group {target_group_id + 1}")
-
-
-
-    elif len(candidate_target_groups) > 1:
-        # Find the candidate group ID with the smallest number of elements
-        candidate_switching_users = []
-        candidate_target_groups.sort(key=lambda c: len(c[1]))
-        [target_group_id,target_group] = candidate_target_groups[0]
-        print(f"Selected Target Group ID: {target_group_id}")
-        for switching_user in user_groups[i]:
-            distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (
-                        switching_user.y - virtual_centers[target_group_id][1]) ** 2)
-            if distance <= BEAM_RADIUS:
-                candidate_switching_users.append(switching_user)
-        l_max = (len(user_groups[i]) - len(target_group)) // 2
-        l_switch = max(1, min(l_max, len(candidate_switching_users)))
-        print(
-            f"Multiple target group found. l_max:{l_max}, l_switch:{l_switch} size_user_group:{len(user_groups[i])} "
-            f"size_target_group:{len(target_group)} size_Switching_users:{len(candidate_switching_users)}")
-
-        candidate_switching_users = candidate_switching_users[:l_switch]
-        for switching_user in candidate_switching_users:
-            user_groups[i].remove(switching_user)
-            target_group.append(switching_user)
-            print(f"Switched User {switching_user.id} from User Group {i + 1} to User Group {target_group_id + 1}")
-        
-
-
-new_virtual_centers = []
-for user_group in user_groups:
-    virtual_center_x = np.mean([user.x for user in user_group])
-    virtual_center_y = np.mean([user.y for user in user_group])
-    new_virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
-
+new_virtual_centers = perform_user_switching(user_groups,virtual_centers)
 plot_users3(user_list,user_groups,new_virtual_centers)
+
 user_group_lengths_after = [len(user_set) for user_set in user_groups]
 print(f"Lengths of user groups before switching: {user_group_lengths_before}")
 print(f"Lengths of user groups after switching: {user_group_lengths_after}")
