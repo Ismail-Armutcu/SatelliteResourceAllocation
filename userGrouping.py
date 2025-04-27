@@ -112,8 +112,8 @@ def plot_users3(user_list, user_groups, virtual_center_list):
     # Plot all users as points
     plt.scatter(x_coords, y_coords, c='blue', label='All Users')
     # Annotate points with user IDs
-    for user in user_list:
-        plt.text(user.x, user.y+0.2, f"{user.id}", fontsize=15, ha='center')
+    # for user in user_list:
+    #     plt.text(user.x, user.y+0.2, f"{user.id}", fontsize=15, ha='center')
 
     # Compute and plot convex hull
     if len(user_coordinates) > 2:  # ConvexHull needs at least 3 points
@@ -202,13 +202,11 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
                 max_distance = distance
                 GUn1, GUn2 = (user1, user2)
 
-    print(f"Farthest users are User {GUn1.id} and User {GUn2.id} with distance {max_distance:.2f}.")
 
     # b. Form an Initial Circle
     center_x = (GUn1.x + GUn2.x) / 2
     center_y = (GUn1.y + GUn2.y) / 2
     radius = max_distance / 2
-    print(f"Initial circle center: ({center_x:.2f}, {center_y:.2f}) with radius: {radius:.2f}")
 
     ungrouped_users = boundary_users + internal_users + user_set_Imc
     temp_user_set = []
@@ -226,7 +224,6 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
             if user in user_set_Imc:
                 user_set_Imc.remove(user)
             user_set_Im.append(user)
-            print("User with Id: ",user.id," is appended to Im")
             print(len(temp_user_set)," Users are added to Im !!!!!####***ALGO COMPLETED!!!!!####***")
         return radius, center_x, center_y
     else:
@@ -241,19 +238,13 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
                 # Form a circle that covers GUn1, GUn2, and GUn3
                 user_set_Imc.remove(GUn3)
                 new_center,new_radius = find_minimum_circle_from_three_user(GUn1, GUn2, GUn3)
-                GUn1.print_user()
-                GUn2.print_user()
-                GUn3.print_user()
-                print(f"New minimum circle center: ({new_center[0]:.2f}, {new_center[1]:.2f}) with radius: {new_radius:.2f}")
                 radius = new_radius
                 center_x = new_center[0]
                 center_y = new_center[1]
 
                 if new_radius <= utils.BEAM_RADIUS:
                     user_set_Im.append(GUn3)
-                    print("User with Id: ", GUn3.id, "is appended to Im")
                 if len(user_set_Imc) == 0:
-                    print("!!!!!####***ALGO COMPLETED!!!!!####***")
                     break
 
     return radius, center_x, center_y
@@ -267,7 +258,6 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
     boundary_weights = [(user_id, distance_weights[user_id]) for user_id in boundary_user_ids]
     max_boundary_user = max(boundary_weights, key=lambda x: x[1])
     max_user_id, max_distance = max_boundary_user
-    print(f"Boundary User with ID {max_user_id} has the highest distance degree: {max_distance}")
 
     # Remove user with ID max_user_id from boundary_users
 
@@ -281,15 +271,12 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
     boundary_users.remove(GUn0)
     # Add the user to user_set_Im
     user_set_Im.append(GUn0)
-    print("User with Id: ",GUn0.id," is added to Im")
-
 
     # e. Determine the users in Im
 
     for GUn in list(boundary_users):
         if distance_matrix_var[GUn0.id, GUn.id] <= utils.BEAM_RADIUS:
             user_set_Im.append(GUn)
-            print("User With Id: ",GUn.id," is appended to Im")
             boundary_users.remove(GUn)
 
     # f. Determine Imc (the users that fall into region (r,2r]
@@ -297,14 +284,6 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
         if utils.BEAM_RADIUS < distance_matrix_var[GUn0.id, GUn.id] <=2*utils.BEAM_RADIUS:
             user_set_Imc.append(GUn) ## append to the last element
 
-    print("Users in Im Initially")
-    [user.print_user() for user in user_set_Im]
-    print("Users in Imc Initially")
-    [user.print_user() for user in user_set_Imc]
-    print("Users in boundary_users Initially")
-    [user.print_user() for user in boundary_users]
-    print("Users in internal_users Initially")
-    [user.print_user() for user in internal_users]
 
     virtual_center_x = np.mean([user.x for user in user_set_Im])
     virtual_center_y = np.mean([user.y for user in user_set_Im])
@@ -313,7 +292,6 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
         distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
         if distance_to_center <= utils.BEAM_RADIUS:
             user_set_Im.append(user)
-            print("User with Id: ", user.id, " is appended to Im")
             internal_users.remove(user)
 
 
@@ -327,7 +305,6 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
                 distance_to_center = np.sqrt((user.x - Cm_x) ** 2 + (user.y - Cm_y) ** 2)
                 if distance_to_center <= Cm_radius:
                     user_set_Im.append(user)
-                    print("User with Id: ",user.id," is appended to Im")
                     user_set_Imc.remove(user)
                     boundary_users.remove(user)
 
@@ -338,19 +315,8 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
         distance_to_center = np.sqrt((user.x - virtual_center_x) ** 2 + (user.y - virtual_center_y) ** 2)
         if distance_to_center <= utils.BEAM_RADIUS:
             user_set_Im.append(user)
-            print("User with Id: ", user.id, " is appended to Im")
             internal_users.remove(user)
 
-
-
-    print("Users in Im Finally")
-    [user.print_user() for user in user_set_Im]
-    print("Users in Imc Finally")
-    [user.print_user() for user in user_set_Imc]
-    print("Users in boundary_users Finally")
-    [user.print_user() for user in boundary_users]
-    print("Users in internal_users Finally")
-    [user.print_user() for user in internal_users]
 
     return user_set_Im,virtual_center_x,virtual_center_y
 
@@ -362,7 +328,6 @@ def group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_mat
         user_weights = [(user_id, distance_weights[user_id]) for user_id in user_ids]
         most_distant_user = min(user_weights, key=lambda x: x[1])
         max_user_id, max_distance = most_distant_user
-        print(f"Boundary User with ID {max_user_id} has the highest distance degree: {max_distance}")
 
         least_distant_user = None
         for user in ungrouped_users:
@@ -395,10 +360,6 @@ def perform_user_switching(user_groups, virtual_centers):
                         candidate_target_groups.append((j, user_groups[j]))
                         break
 
-        for candidate in candidate_target_groups:
-            print(candidate[0])
-            for candidate_user in candidate[1]:
-                print("\t", candidate_user.id)
 
         if len(candidate_target_groups) == 0:
             print("No candidate target groups found.")
@@ -414,15 +375,11 @@ def perform_user_switching(user_groups, virtual_centers):
                     candidate_switching_users.append(switching_user)
             l_max = (len(user_groups[i]) - len(target_group)) // 2
             l_switch = max(1, min(l_max, len(candidate_switching_users)))
-            print(
-                f"Only one candidate target group found. l_max:{l_max}, l_switch:{l_switch} "
-                f"size_user_group:{len(user_groups[i])} "
-                f"size_target_group:{len(target_group)} size_Switching_users:{len(candidate_switching_users)}")
             candidate_switching_users = candidate_switching_users[:l_switch]
             for switching_user in candidate_switching_users:
                 user_groups[i].remove(switching_user)
                 target_group.append(switching_user)
-                print(f"Switched User {switching_user.id} from User Group {i + 1} to User Group {target_group_id + 1}")
+
 
 
 
@@ -431,7 +388,7 @@ def perform_user_switching(user_groups, virtual_centers):
             candidate_switching_users = []
             candidate_target_groups.sort(key=lambda c: len(c[1]))
             [target_group_id, target_group] = candidate_target_groups[0]
-            print(f"Selected Target Group ID: {target_group_id}")
+
             for switching_user in user_groups[i]:
                 distance = np.sqrt((switching_user.x - virtual_centers[target_group_id][0]) ** 2 + (
                         switching_user.y - virtual_centers[target_group_id][1]) ** 2)
@@ -439,15 +396,13 @@ def perform_user_switching(user_groups, virtual_centers):
                     candidate_switching_users.append(switching_user)
             l_max = (len(user_groups[i]) - len(target_group)) // 2
             l_switch = max(1, min(l_max, len(candidate_switching_users)))
-            print(
-                f"Multiple target group found. l_max:{l_max}, l_switch:{l_switch} size_user_group:{len(user_groups[i])} "
-                f"size_target_group:{len(target_group)} size_Switching_users:{len(candidate_switching_users)}")
+
 
             candidate_switching_users = candidate_switching_users[:l_switch]
             for switching_user in candidate_switching_users:
                 user_groups[i].remove(switching_user)
                 target_group.append(switching_user)
-                print(f"Switched User {switching_user.id} from User Group {i + 1} to User Group {target_group_id + 1}")
+
 
     new_virtual_centers = []
     for user_group in user_groups:
@@ -491,10 +446,7 @@ def group_users():
         group_ungrouped_internal_users(ungrouped_users, distance_weights, distance_matrix_var, user_groups,
                                        virtual_centers)
         plot_users3(user_list, user_groups, virtual_centers)
-    print("User Groups")
-    for i, user_set in enumerate(user_groups):
-        print(f"User Group {i + 1} With {len(user_set)} Users:")
-        [user.print_user() for user in user_set]
+
     # Create an array of the lengths of each user group
     user_group_lengths_before = [len(user_set) for user_set in user_groups]
     new_virtual_centers = perform_user_switching(user_groups, virtual_centers)

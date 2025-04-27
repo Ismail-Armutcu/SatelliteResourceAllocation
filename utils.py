@@ -1,12 +1,14 @@
 import numpy as np
 
 USER_NUMBER = 100
-USER_AREA = 10 #km
+USER_AREA = 10*100 #km
 TOTAL_SLOTS = 30
-BEAM_RADIUS = 2
+BEAM_RADIUS = 3.5 *100
 USER_SWITCHING_THRESHOLD_HEAVY = 8
 USER_SWITCHING_THRESHOLD_LIGHT= 2
 TOTAL_BEAM_NUMBER = 4
+RATE_PER_USER = 163 #kbps based on paper
+SATELLITE_ALTITUDE = 2000 #km
 
 class User:
     def __init__(self, uid, x, y,
@@ -48,7 +50,7 @@ def generate_users():
     area_side_km = USER_AREA
     slot_count = TOTAL_SLOTS
     tau = 1.0  #slot length (s) – only matters for plotting
-    size_range = (0.1, 1.5)
+    size_range = (100, 1500) # kbits
     rng = None
 
 
@@ -56,10 +58,10 @@ def generate_users():
 
     coords = rng.random((n_users, 2)) * area_side_km
 
-    # sizes in MB (use .uniform if you prefer log‑normal etc.)
+    # sizes in kbit (use .uniform if you prefer log‑normal etc.)
     sizes = rng.uniform(*size_range, n_users)
 
-    # weights: pick from {1,2,3} or make them continuous
+    # weights: pick from {1,2,3 ... 10} or make them continuous
     weights = rng.integers(1, 10, n_users)
 
     # deadline slots: at least 2 slots after start and 2 before end
