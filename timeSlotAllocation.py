@@ -25,20 +25,18 @@ def create_aggregate_users(user_groups):
     return aggregate_users
 
 
-def calculate_rate(vau, t):
+def calculate_rate(vau, t, f = utils.CARRIER_FREQUENCY):
     satellite_x = satellite_y = (utils.USER_AREA / utils.TOTAL_SLOTS) * t
     # satellite is moving from [0,0] to [max_x,max_y] in a diagonal line.
     distance = np.sqrt((vau.x - satellite_x) ** 2 + (vau.y - satellite_y) ** 2 + utils.SATELLITE_ALTITUDE ** 2) * 1000
     g_t = 1000  # satellite transmit antenna gain in linear scale assuming 0.4 degree beamwidth
     g_r = 31.62  # user receiver antenna gain in linear scale
     p = 40  # satellite transmit power
-    B = 20 * 10 ** 6 # bandwidth 20 Mhz
-    f = 20 * 10 ** 9 # carrier frequency 20 Ghz
     N_0 = 3.98 * 10 ** -18 # Noise spectral density -174 dbw/Hz
     c = 3 * 10 ** 8 # speed of light
     L = (c / (4 * np.pi * f * distance)) ** 2 # free space path loss
-    x = (p * g_t * g_r * L) / (N_0 * B)
-    rate = B * np.log(1+x)
+    x = (p * g_t * g_r * L) / (N_0 * utils.BANDWIDTH)
+    rate = utils.BANDWIDTH * np.log(1+x)
     return rate
 
 def needs_assignment(au_m : AggregateUser, t, epsilon, epsilon_used, au_mapping):
@@ -51,6 +49,7 @@ def initial_user_time_slot_assignment(aggregate_users):
     N0 = utils.TOTAL_BEAM_NUMBER * utils.TOTAL_SLOTS
     S = np.array([au.Sbar for au in aggregate_users])
     epsilon = np.round(N0 * S / S.sum()).astype(int)  # beam‑slot quota per group
+    epsilon_used = np.zeros(len(epsilon))
     a_m = np.ceil(epsilon / utils.TOTAL_BEAM_NUMBER).astype(int)
 
     print("epsilon: ", epsilon)
@@ -90,10 +89,9 @@ def initial_user_time_slot_assignment(aggregate_users):
             au_time_slot_mapping[AU_id] = []
         au_time_slot_mapping[AU_id].append(int(assigned_slot))
 
-    epsilon_used = []
     print("Initial assignment:")
     for AU_id in au_time_slot_mapping:
-        epsilon_used.append(int(len(au_time_slot_mapping[AU_id])))
+        epsilon_used[AU_id] =(int(len(au_time_slot_mapping[AU_id])))
         print(f"AU {AU_id} is assigned to slots {au_time_slot_mapping[AU_id]}")
 
     return au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used
@@ -126,20 +124,20 @@ def residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_sl
 
 
 
-user_groups, virtual_centers = userGrouping.group_users()
-aggregate_users = create_aggregate_users(user_groups)
-
-[au.print_user() for au in aggregate_users]
-
-
-au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = initial_user_time_slot_assignment(aggregate_users)
-
-au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used)
-
-
-
-for time_slot in sorted(time_slot_au_mapping.keys()):
-    print(f"Time slot {time_slot} is assigned to AU {[au.id for au in time_slot_au_mapping[time_slot]]}")
-
-print("epsilon", epsilon)
-print("epsilon_used: ", epsilon_used)
+# user_groups, virtual_centers = userGrouping.group_users()
+# aggregate_users = create_aggregate_users(user_groups)
+#
+# [au.print_user() for au in aggregate_users]
+#
+#
+# au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = initial_user_time_slot_assignment(aggregate_users)
+#
+# au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used)
+#
+#
+#
+# for time_slot in sorted(time_slot_au_mapping.keys()):
+#     print(f"Time slot {time_slot} is assigned to AU {[au.id for au in time_slot_au_mapping[time_slot]]}")
+#
+# print("epsilon", epsilon)
+# print("epsilon_used: ", epsilon_used)

@@ -9,6 +9,10 @@ USER_SWITCHING_THRESHOLD_LIGHT= 2
 TOTAL_BEAM_NUMBER = 4
 RATE_PER_USER = 163 #kbps based on paper
 SATELLITE_ALTITUDE = 2000 #km
+CARRIER_FREQUENCY = 20 * 10 ** 9 # carrier frequency 20 Ghz
+BANDWIDTH = 20 * 10 ** 6 #bandwidth 20 Mhz
+USER_WEIGHT_THRESHOLD = 5
+SUBCHANNEL_NUMBER = 10
 
 class User:
     def __init__(self, uid, x, y,
@@ -64,8 +68,8 @@ def generate_users():
     # weights: pick from {1,2,3 ... 10} or make them continuous
     weights = rng.integers(1, 10, n_users)
 
-    # deadline slots: at least 2 slots after start and 2 before end
-    deadlines = rng.integers(2, slot_count-1, n_users)
+    # deadline slots: at least 5 slots after start and 2 before end
+    deadlines = rng.integers(5, slot_count-1, n_users)
 
     users = [User(i,
                   coords[i,0], coords[i,1],
