@@ -46,87 +46,99 @@ def needs_assignment(au_m : AggregateUser, t, epsilon, epsilon_used, au_mapping)
     return epsilon_used[au_m.id] < epsilon[au_m.id] and au_m.Tbar >= t and t not in au_mapping[au_m.id]
 
 
+def initial_user_time_slot_assignment(aggregate_users):
+    # proportional fairness
+    N0 = utils.TOTAL_BEAM_NUMBER * utils.TOTAL_SLOTS
+    S = np.array([au.Sbar for au in aggregate_users])
+    epsilon = np.round(N0 * S / S.sum()).astype(int)  # beam‑slot quota per group
+    a_m = np.ceil(epsilon / utils.TOTAL_BEAM_NUMBER).astype(int)
+
+    print("epsilon: ", epsilon)
+    print("a_m: ", a_m)
+
+    # virtualise aggregate users
+    VAUs = []
+    for m, au in enumerate(aggregate_users):
+        VAUsm = []
+        for j in range(a_m[m]):
+            VAUs.append((m, j))  # tuple (group_id, copy)
+
+    # K-M Assignment algorithm
+    C = np.zeros((len(VAUs), utils.TOTAL_SLOTS))
+    for i, (group_id, _) in enumerate(VAUs):
+        au = aggregate_users[group_id]
+        for t in range(utils.TOTAL_SLOTS):
+            rate = calculate_rate(au, t)
+            C[i, t] = -rate  # Negative for Hungarian (minimize cost)
+
+    row_idx, col_idx = linear_sum_assignment(C)
+    print("row_idx: ", row_idx)
+    print("col_idx: ", col_idx)
+
+    # Interpret results:
+    au_time_slot_mapping = {}
+    time_slot_au_mapping = {}
+
+    for r, c in zip(row_idx, col_idx):
+        AU_id, _ = VAUs[r]
+        assigned_slot = c
+        if c not in time_slot_au_mapping:
+            time_slot_au_mapping[c] = []
+        time_slot_au_mapping[c].append(aggregate_users[AU_id])
+
+        if AU_id not in au_time_slot_mapping:
+            au_time_slot_mapping[AU_id] = []
+        au_time_slot_mapping[AU_id].append(int(assigned_slot))
+
+    epsilon_used = []
+    print("Initial assignment:")
+    for AU_id in au_time_slot_mapping:
+        epsilon_used.append(int(len(au_time_slot_mapping[AU_id])))
+        print(f"AU {AU_id} is assigned to slots {au_time_slot_mapping[AU_id]}")
+
+    return au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used
+
+
+def residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used):
+    print("epsilon", epsilon)
+    print("epsilon_used: ", epsilon_used)
+
+    for t in range(utils.TOTAL_SLOTS):
+        already_assigned = time_slot_au_mapping[t]
+
+        free_beams = utils.TOTAL_BEAM_NUMBER - 1
+        candidates = []
+        for au_m in aggregate_users:
+            if au_m not in already_assigned and needs_assignment(au_m, t, epsilon, epsilon_used, au_time_slot_mapping):
+                candidates.append(au_m)
+
+        candidates = [au_m for au_m in aggregate_users if
+                      au_m.id not in already_assigned and needs_assignment(au_m, t, epsilon, epsilon_used,
+                                                                           au_time_slot_mapping)]
+        candidates.sort(key=lambda m: calculate_rate(m, t), reverse=True)
+
+        for m in candidates[:free_beams]:
+            epsilon_used[m.id] += 1
+            time_slot_au_mapping[t].append(m)
+            au_time_slot_mapping[m.id].append(t)
+
+    return  au_time_slot_mapping,time_slot_au_mapping, epsilon, epsilon_used
+
+
 
 user_groups, virtual_centers = userGrouping.group_users()
 aggregate_users = create_aggregate_users(user_groups)
 
 [au.print_user() for au in aggregate_users]
 
-# proportional fairness
-N0     = utils.TOTAL_BEAM_NUMBER*utils.TOTAL_SLOTS
-S      = np.array([au.Sbar for au in aggregate_users])
-epsilon   = np.round(N0 * S / S.sum()).astype(int)   # beam‑slot quota per group
-a_m = np.ceil(epsilon / utils.TOTAL_BEAM_NUMBER).astype(int)
 
-print("epsilon: ", epsilon)
-print("a_m: ", a_m)
+au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = initial_user_time_slot_assignment(aggregate_users)
 
-# virtualise aggregate users
-
-VAUs = []
-for m, au in enumerate(aggregate_users):
-    VAUsm = []
-    for j in range(a_m[m]):
-        VAUs.append((m, j))       # tuple (group_id, copy)
+au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used)
 
 
 
-C = np.zeros((len(VAUs), utils.TOTAL_SLOTS))
-for i, (group_id, _) in enumerate(VAUs):
-    au = aggregate_users[group_id]
-    for t in range(utils.TOTAL_SLOTS):
-        rate = calculate_rate(au, t)
-        C[i, t] = -rate  # Negative for Hungarian (minimize cost)
-
-row_idx, col_idx = linear_sum_assignment(C)
-print("row_idx: ",row_idx)
-print("col_idx: ",col_idx)
-
-
-# Interpret results:
-au_time_slot_mapping = {}
-time_slot_au_mapping = {}
-
-
-for r, c in zip(row_idx, col_idx):
-    AU_id, _ = VAUs[r]
-    assigned_slot = c
-    if c not in time_slot_au_mapping:
-        time_slot_au_mapping[c] = []
-    time_slot_au_mapping[c].append(aggregate_users[AU_id])
-
-    if AU_id not in au_time_slot_mapping:
-        au_time_slot_mapping[AU_id] = []
-    au_time_slot_mapping[AU_id].append(int(assigned_slot))
-
-epsilon_used = []
-for AU_id in au_time_slot_mapping:
-    epsilon_used.append(int(len(au_time_slot_mapping[AU_id])))
-    print(f"AU {AU_id} is assigned to slots {au_time_slot_mapping[AU_id]}")
-
-
-
-print("epsilon", epsilon)
-print("epsilon_used: ", epsilon_used)
-
-for t in range(utils.TOTAL_SLOTS):
-    already_assigned = [VAUs[r][0] for r, c in zip(row_idx, col_idx) if c == t]
-
-    free_beams = utils.TOTAL_BEAM_NUMBER - 1
-    candidates = []
-    for au_m in aggregate_users:
-        if au_m.id not in already_assigned and needs_assignment(au_m, t,epsilon, epsilon_used, au_time_slot_mapping):
-            candidates.append(au_m)
-
-
-    candidates = [au_m for au_m in aggregate_users if au_m.id not in already_assigned and needs_assignment(au_m, t,epsilon, epsilon_used, au_time_slot_mapping)]
-    candidates.sort(key=lambda m: calculate_rate(m, t), reverse=True)
-
-    for m in candidates[:free_beams]:
-        epsilon_used[m.id] += 1
-        time_slot_au_mapping[t].append(m)
-
-for time_slot in time_slot_au_mapping:
+for time_slot in sorted(time_slot_au_mapping.keys()):
     print(f"Time slot {time_slot} is assigned to AU {[au.id for au in time_slot_au_mapping[time_slot]]}")
 
 print("epsilon", epsilon)
