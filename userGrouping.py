@@ -7,6 +7,18 @@ import utils
 
 
 def plot_users(user_list):
+    """
+    Generate a scatter plot for a list of users, marking their locations on a plot,
+    annotating them with their IDs, and drawing a convex hull around the boundary users.
+
+    The function creates a 2D visualization where each user's location is represented as a point
+    based on their x and y coordinates. It further divides the users into two groups — boundary users
+    and internal users — depending on whether they are part of the convex hull or not. A convex hull
+    is plotted to visually enclose the locations of the boundary users.
+
+    :param user_list: A list of user objects, where each user has attributes 'x', 'y', and 'id'.
+    :return: A Matplotlib plot object displaying users on a scatter plot with their IDs and convex hull.
+    """
     x_coords = [user.x for user in user_list]
     y_coords = [user.y for user in user_list]
     # Create a scatter plot
@@ -154,6 +166,25 @@ def plot_users3(user_list, user_groups, virtual_center_list):
     plt.show()
 
 def find_minimum_circle_from_three_user(GUn1, GUn2, GUn3):
+    """
+    Finds the minimum circle that encompasses three given points.
+
+    This function calculates the circumcenter and circumradius of the circle
+    that passes through the three specified user locations. It uses deterministic
+    geometry to compute the center and radius. If the provided points are
+    collinear, a circle cannot be formed, and the function handles this
+    degenerated case by displaying an appropriate message and returning None.
+
+    :param GUn1: The first user represented as a point object with x and y
+                 coordinates.
+    :param GUn2: The second user represented as a point object with x and y
+                 coordinates.
+    :param GUn3: The third user represented as a point object with x and y
+                 coordinates.
+    :returns: A tuple containing the coordinates of the center of the circle
+              (numpy array) and the radius of the circle (float). Returns None
+              if the points are collinear.
+    """
     if GUn1 == None or GUn2 == None or GUn3 == None:
         print("One of the users is None!!!!")
     A = np.array([GUn1.x, GUn1.y])
@@ -180,7 +211,24 @@ def find_minimum_circle_from_three_user(GUn1, GUn2, GUn3):
     return new_center, new_radius
 
 def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Imc,boundary_users,internal_users):
+    """
+    Computes the minimum enclosing circle around a group of users and updates group positions.
+    This method orchestrates identifying the farthest pair among a subset of users, forms an
+    initial circle, and iteratively adjusts the circle's bounds to accommodate ungrouped users.
+    The algorithm updates positional groups as appropriate to refine the enclosing circle
+    construct until a termination condition is reached or no further updates are possible.
 
+    :param user_set_Im:
+        List of users currently in group Im.
+    :param user_set_Imc:
+        List of users candidate for inclusion in Im.
+    :param boundary_users:
+        Users on the boundary of a previous group formation.
+    :param internal_users:
+        Users fully enclosed in previous group formations.
+    :return:
+        A tuple containing (radius, center_x, center_y) of the minimum enclosing circle.
+    """
     # a. Select two users from I_m
     max_distance = 0
     farthest_users = (None, None)
@@ -251,6 +299,23 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
 
 
 def create_grouping(boundary_users, internal_users, distance_weights, distance_matrix_var):
+    """
+    Create user groupings based on boundary and internal users, as well as a distance matrix.
+    This function calculates central positions for user groupings, then groups users based on
+    their proximity to these central positions using specified distance criteria. Boundary users
+    and internal users are processed iteratively to form and refine groups, ensuring optimal
+    coverage of user clusters.
+
+    :param boundary_users: A list of boundary user objects that need to be grouped.
+    :param internal_users: A list of internal user objects that are considered for inclusion in groups.
+    :param distance_weights: A dictionary where keys are user IDs and values represent their
+                             associated distance weights.
+    :param distance_matrix_var: A numpy matrix (or similar structure) representing distances
+                                between all user pairs.
+    :return: A tuple containing the list of grouped users (`user_set_Im`), the x-coordinate
+             of their virtual center (`virtual_center_x`), and the y-coordinate of their
+             virtual center (`virtual_center_y`).
+    """
     # d. Select the Ungrouped Boundary User with the Highest Distance Degree to initiate user grouping
     user_set_Im = []  # Initialize list of user groups
     user_set_Imc = []
@@ -322,6 +387,37 @@ def create_grouping(boundary_users, internal_users, distance_weights, distance_m
 
 
 def group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_matrix_var,user_groups,virtual_centers):
+    """
+    Groups ungrouped users into clusters based on a distance threshold and updates the
+    user groups and their corresponding virtual centers. The grouping process iteratively
+    identifies the most distant user in the current ungrouped users and forms a group with
+    users that fall within a predefined radius from this user.
+
+    :param ungrouped_users:
+        List of users that are not yet grouped. Each user in the list is expected
+        to have attributes `id`, `x`, and `y` indicating their unique identifier
+        and spatial coordinates, respectively.
+    :param distance_weights:
+        Dictionary where the keys are user IDs and the values are their
+        associated distance weights. This determines which user has the
+        maximum distance among the ungrouped.
+    :param distance_matrix_var:
+        Two-dimensional matrix (or equivalent dictionary) that stores pairwise
+        distances between user IDs. The matrix is used to evaluate how close
+        any two users are to each other.
+    :param user_groups:
+        List of lists where each sublist contains grouped users. This parameter
+        is modified in place to include newly formed groups during the function execution.
+    :param virtual_centers:
+        List of numpy arrays representing the calculated virtual centers for
+        each user group. A virtual center is computed as the mean of the x and
+        y coordinates of users in a specific group. This parameter is modified
+        in place to include newly computed centers for the groups formed.
+
+    :return:
+        None. The input parameters `user_groups` and `virtual_centers` are modified
+        in place to update the grouped users and their respective virtual centers.
+    """
     while len(ungrouped_users) != 0:
         user_set_Im = []
         user_ids = [user.id for user in ungrouped_users]
@@ -349,6 +445,22 @@ def group_ungrouped_internal_users(ungrouped_users,distance_weights,distance_mat
         virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
 
 def perform_user_switching(user_groups, virtual_centers):
+    """
+    Performs user switching among groups based on distance thresholds, beam radii, and group size
+    constraints. This function modifies the given user groups by identifying users that can be
+    moved to target groups. The process aims to balance user groups when certain thresholds are
+    met and returns updated virtual center positions for all user groups.
+
+    :param user_groups: A list where each element is a list of users representing a user group. Each user
+        in the group has attributes `x` and `y` representing their coordinates.
+    :type user_groups: list[list[User]]
+    :param virtual_centers: A list of 2D coordinates representing the initial virtual centers for
+        each user group. Each element is a numpy array with two values `[x, y]`.
+    :type virtual_centers: list[numpy.ndarray]
+    :return: A list of updated virtual centers, each being a numpy array `[x, y]`, representing the
+        new average positions of users in each group after potential switching.
+    :rtype: list[numpy.ndarray]
+    """
     for i in range(len(user_groups) - 1):
         candidate_target_groups = []
         for j in range(i + 1, len(user_groups)):
@@ -413,6 +525,31 @@ def perform_user_switching(user_groups, virtual_centers):
 
 
 def group_users():
+    """
+    Groups users based on their spatial coordinates into boundary users and internal users,
+    and further clusters all users into groups using their calculated distance weights and
+    connectivity matrix. The function refines grouped users by performing user-switching
+    to optimize group configurations and results are visualized in different stages.
+
+    Summary:
+    1. Identifies boundary and internal users using a convex hull on spatial coordinates.
+    2. Groups users iteratively, creating boundary-centered groups with virtual centers.
+    3. Groups internal users separately if any remain ungrouped after step 2.
+    4. Refines the user groups by allowing users to switch between groups for optimization.
+    5. Visualizes the size of groups before and after the switching process.
+    6. Plots intermediate and final group configurations along with their group centers.
+
+    :param boundary_users: List of boundary users identified surrounding internal users.
+    :param internal_users: List of users classified as internal within the boundary.
+    :param user_list: List of all user objects defined by their coordinates and properties.
+    :param user_coordinates: NumPy array of user spatial coordinates of shape (n, 2), where
+        n is the number of users.
+
+    :return: A tuple of two elements:
+        - user_groups: List of lists, where each inner list represents a grouped set of users.
+        - new_virtual_centers: List of NumPy arrays, where each array contains the coordinates
+          (x, y) of the virtual group centers after switching.
+    """
     # a. Initialization
     boundary_users = []
     internal_users = []

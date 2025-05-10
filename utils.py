@@ -15,6 +15,27 @@ USER_WEIGHT_THRESHOLD = 5
 SUBCHANNEL_NUMBER = 10
 
 class User:
+    """
+    Represents a user with coordinates, data size, weight, and a deadline slot.
+
+    The User class is intended to encapsulate all necessary information about a
+    user, such as their unique identifier, spatial coordinates, data size, weight,
+    and deadline requirements. It provides basic functionalities such as
+    retrieving user coordinates and printing user details.
+
+    :ivar id: A unique identifier for the user.
+    :type id: Any
+    :ivar x: The x-coordinate of the user.
+    :type x: float
+    :ivar y: The y-coordinate of the user.
+    :type y: float
+    :ivar size: The data size associated with the user.
+    :type size: float
+    :ivar weight: The priority weight of the user.
+    :type weight: float
+    :ivar deadline: The deadline slot for the user.
+    :type deadline: int
+    """
     def __init__(self, uid, x, y,
                  size_mb: float,
                  weight: float,

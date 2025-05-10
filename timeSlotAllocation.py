@@ -5,6 +5,22 @@ import utils
 
 
 class AggregateUser:
+    """
+    Represents an aggregate user group comprising multiple individual users.
+
+    The purpose of this class is to aggregate data from multiple users, calculate
+    statistical and aggregated metrics based on their individual attributes, and
+    provide access to relevant collective information about the group. This can be
+    helpful for tasks that require handling groups of users collectively rather than
+    individually.
+
+    :ivar id: Unique group identifier for the aggregate user group.
+    :ivar usr: List of users that belong to this aggregate user group.
+    :ivar Sbar: Weighted sum of product of `weight` and `size` for all users in the group.
+    :ivar Tbar: Maximum deadline among all users in the group.
+    :ivar x: Mean x-coordinate of all users in the group.
+    :ivar y: Mean y-coordinate of all users in the group.
+    """
     def __init__(self, gid, users):
         self.id   = gid
         self.usr  = users
@@ -19,6 +35,21 @@ class AggregateUser:
 
 
 def create_aggregate_users(user_groups):
+    """
+    Creates a list of `AggregateUser` instances from the provided groups of users.
+
+    This function iterates through the given list of user groups, creates an
+    `AggregateUser` instance for each group, and adds the created instance
+    to a list. The `AggregateUser` is initialized with the index of the group
+    in the list and the corresponding group of users.
+
+    :param user_groups: The list of user groups where each group is a collection
+        of users to be aggregated.
+    :type user_groups: list
+    :return: A list of `AggregateUser` instances created from the given user
+        groups.
+    :rtype: list
+    """
     aggregate_users = []
     for i, user_set in enumerate(user_groups):
         aggregate_users.append(AggregateUser(i, user_set))
@@ -26,6 +57,32 @@ def create_aggregate_users(user_groups):
 
 
 def calculate_rate(vau, t, f = utils.CARRIER_FREQUENCY):
+    """
+    Calculate the data transmission rate between a satellite and a user.
+
+    This function computes the data rate (bits per second) based on the free-space
+    path loss model and factors such as user location, satellite properties, and
+    transmission settings.
+
+    The computation assumes the satellite moves diagonally from the origin to the
+    topmost corner of a defined area at a given time instance. It calculates the
+    distance between the satellite and the user, applies the free-space path loss
+    formula, and evaluates the achievable data rate using the Shannon-Hartley
+    capacity theorem.
+
+    :param vau: A user entity object. It contains the user's current position,
+        specifically with attributes `x` and `y` for coordinates.
+    :type vau: object
+    :param t: The time at which the satellite's diagonal position is calculated,
+        affecting its coordinates relative to the user.
+    :type t: float
+    :param f: The carrier frequency in Hertz used for transmission. Defaults to the
+        value specified by `utils.CARRIER_FREQUENCY`.
+    :type f: float, optional
+    :return: The achievable data rate (bits per second) for the communication link
+        between the satellite and the user at the given time.
+    :rtype: float
+    """
     satellite_x = satellite_y = (utils.USER_AREA / utils.TOTAL_SLOTS) * t
     # satellite is moving from [0,0] to [max_x,max_y] in a diagonal line.
     distance = np.sqrt((vau.x - satellite_x) ** 2 + (vau.y - satellite_y) ** 2 + utils.SATELLITE_ALTITUDE ** 2) * 1000
@@ -40,11 +97,50 @@ def calculate_rate(vau, t, f = utils.CARRIER_FREQUENCY):
     return rate
 
 def needs_assignment(au_m : AggregateUser, t, epsilon, epsilon_used, au_mapping):
+    """
+    Determine whether an AggregateUser needs assignment based on specific conditions.
 
+    The function evaluates whether a given AggregateUser (`au_m`) requires assignment at
+    time `t`. This determination is based on whether `au_m`'s usage of `epsilon` is below
+    its allowable threshold, whether its `Tbar` value meets or exceeds the current time `t`,
+    and whether the given time `t` is not already mapped in the user's assignment mappings.
+
+    :param au_m: The user instance of AggregateUser to be evaluated.
+    :type au_m: AggregateUser
+    :param t: The current time for evaluation.
+    :type t: int
+    :param epsilon: A dictionary maintaining the epsilon threshold for each user indexed by their ID.
+    :type epsilon: dict[int, float]
+    :param epsilon_used: A dictionary mapping the used epsilon values for each user indexed by their ID.
+    :type epsilon_used: dict[int, float]
+    :param au_mapping: A dictionary storing time mappings for each user indexed by their ID.
+    :type au_mapping: dict[int, set]
+    :return: Whether the AggregateUser needs assignment at time `t` based on the criteria.
+    :rtype: bool
+    """
     return epsilon_used[au_m.id] < epsilon[au_m.id] and au_m.Tbar >= t and t not in au_mapping[au_m.id]
 
 
 def initial_user_time_slot_assignment(aggregate_users):
+    """
+    Assigns initial time slots for aggregate users using proportional fairness and optimal assignment
+    algorithms. This method ensures a fair allocation of beam-slot quotas to user groups based on
+    their demands, followed by virtualizing users and performing cost minimization using the
+    Kuhn-Munkres (Hungarian) algorithm.
+
+    :param aggregate_users: List of aggregate user objects, each containing necessary attributes required
+        for slot assignment such as 'Sbar' for their proportional demands.
+    :type aggregate_users: List[AggregateUserType]
+
+    :return: A tuple containing:
+                - `au_time_slot_mapping`: A dictionary mapping aggregate user IDs to their assigned
+                  time slots.
+                - `time_slot_au_mapping`: A dictionary mapping time slots to aggregate user objects that
+                  are assigned to those slots.
+                - `epsilon`: An array representing the initial calculated beam-slot quotas per group.
+                - `epsilon_used`: An array representing the final used beam-slot quotas after assignment.
+    :rtype: Tuple[Dict[int, List[int]], Dict[int, List[AggregateUserType]], np.ndarray, np.ndarray]
+    """
     # proportional fairness
     N0 = utils.TOTAL_BEAM_NUMBER * utils.TOTAL_SLOTS
     S = np.array([au.Sbar for au in aggregate_users])
@@ -98,6 +194,20 @@ def initial_user_time_slot_assignment(aggregate_users):
 
 
 def residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used):
+    """
+    Assigns residual time slots to eligible Aggregate Users (AUs) according to specific conditions and constraints.
+
+    This function carries out the assignment of available time slots to AUs while considering their eligibility based on
+    the provided epsilon and epsilon_used constraints. The assignment is performed iteratively per time slot, and for
+    each slot, eligible AUs are ranked by their calculated rate and assigned to the available beams.
+
+    :param aggregate_users: List of AUs representing the aggregate users to be assigned to time slots.
+    :param au_time_slot_mapping: Dictionary that maps each AU ID to the list of already assigned time slots.
+    :param time_slot_au_mapping: Dictionary mapping time slots to the list of assigned AUs.
+    :param epsilon: Assignment threshold to determine eligibility for slot assignment.
+    :param epsilon_used: Dictionary tracking the number of times an AU has already been assigned, keyed by AU ID.
+    :return: A tuple containing the updated `au_time_slot_mapping`, `time_slot_au_mapping`, `epsilon`, and `epsilon_used`.
+    """
     print("epsilon", epsilon)
     print("epsilon_used: ", epsilon_used)
 
@@ -122,22 +232,24 @@ def residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_sl
 
     return  au_time_slot_mapping,time_slot_au_mapping, epsilon, epsilon_used
 
+def print_time_slot_assignments(time_slot_au_mapping, epsilon, epsilon_used):
+    """
+    Prints the assignment of time slots to access units (AUs) along with epsilon values.
 
+    This function takes a mapping of time slots to AUs and prints the assignments in
+    sorted order of the time slots. Additionally, it displays the provided epsilon
+    value and the amount of epsilon used.
 
-# user_groups, virtual_centers = userGrouping.group_users()
-# aggregate_users = create_aggregate_users(user_groups)
-#
-# [au.print_user() for au in aggregate_users]
-#
-#
-# au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = initial_user_time_slot_assignment(aggregate_users)
-#
-# au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used)
-#
-#
-#
-# for time_slot in sorted(time_slot_au_mapping.keys()):
-#     print(f"Time slot {time_slot} is assigned to AU {[au.id for au in time_slot_au_mapping[time_slot]]}")
-#
-# print("epsilon", epsilon)
-# print("epsilon_used: ", epsilon_used)
+    :param time_slot_au_mapping: Dictionary mapping time slots to sets or lists of
+        AUs, where each AU has an `id` attribute.
+    :type time_slot_au_mapping: dict
+    :param epsilon: The total allowable epsilon value, generally a numerical type.
+    :type epsilon: float
+    :param epsilon_used: The portion of epsilon utilized, generally a numerical type.
+    :type epsilon_used: float
+    :return: None
+    """
+    for time_slot, users in sorted(time_slot_au_mapping.items()):
+        print(f"Time slot {time_slot} is assigned to AUs {[au.id for au in users]}")
+    print("epsilon:", epsilon)
+    print("epsilon_used:", epsilon_used)
