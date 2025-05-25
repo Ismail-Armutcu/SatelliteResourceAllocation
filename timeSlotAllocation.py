@@ -22,15 +22,26 @@ class AggregateUser:
     :ivar y: Mean y-coordinate of all users in the group.
     """
     def __init__(self, gid, users):
+        """
+        Initializes an AggregateUser instance with the provided group ID and users.
+
+        :param gid: The unique identifier for this aggregate user group.
+        :type gid: int
+        :param users: A list of User instances that belong to this aggregate user group.
+        :type users: list[User]
+        """
         self.id   = gid
         self.usr  = users
         self.Sbar = sum(u.weight * u.size for u in users)
         self.Tbar = max(u.deadline for u in users)
         self.x  = np.mean([u.x for u in users])
         self.y  = np.mean([u.y for u in users])
+        for u in users:
+            u.group_id = gid
+
     def print_user(self):
-        print("Aggregate User Group Id: " ,self.id ," x_coord: " ,self.x ,"y_coord: " ,self.y,
-              " Sbar: ",self.Sbar," Tbar: ",self.Tbar, f"Total User: {len(self.usr)} Users {[u.id for u in self.usr]}" )
+        print(f"Aggregate User Group Id: {self.id} x_coord: {self.x:.2f} y_coord:  {self.y:.2f} Sbar(kbits): {self.Sbar/1e3:.2f}  Tbar: {self.Tbar}"
+              f"Total User: {len(self.usr)} Users {[u.id for u in self.usr]}" )
 
 
 
@@ -94,7 +105,9 @@ def calculate_rate(vau, t, f = utils.CARRIER_FREQUENCY):
     L = (c / (4 * np.pi * f * distance)) ** 2 # free space path loss
     x = (p * g_t * g_r * L) / (N_0 * utils.BANDWIDTH)
     rate = utils.BANDWIDTH * np.log(1+x)
-    return rate
+    if utils.LOG_LEVEL >= 2:
+        print(f"Satellite position at time {t}: ({satellite_x:.2f}, {satellite_y:.2f}), User position: ({vau.x:.2f}, {vau.y:.2f}), Distance: {distance:.2f} m, Rate: {rate * utils.RATE_SCALING_FACTOR /1e6:.2f} Mbps")
+    return rate * utils.RATE_SCALING_FACTOR
 
 def needs_assignment(au_m : AggregateUser, t, epsilon, epsilon_used, au_mapping):
     """
@@ -148,8 +161,10 @@ def initial_user_time_slot_assignment(aggregate_users):
     epsilon_used = np.zeros(len(epsilon))
     a_m = np.ceil(epsilon / utils.TOTAL_BEAM_NUMBER).astype(int)
 
-    print("epsilon: ", epsilon)
-    print("a_m: ", a_m)
+    if utils.LOG_LEVEL >= 1:
+        print("Initial time slot assignment started...")
+        print("epsilon: ", epsilon)
+        print("a_m: ", a_m)
 
     # virtualise aggregate users
     VAUs = []
@@ -167,8 +182,11 @@ def initial_user_time_slot_assignment(aggregate_users):
             C[i, t] = -rate  # Negative for Hungarian (minimize cost)
 
     row_idx, col_idx = linear_sum_assignment(C)
-    print("row_idx: ", row_idx)
-    print("col_idx: ", col_idx)
+    if utils.LOG_LEVEL >= 2:
+        print("Cost matrix C:")
+        print(C)
+        print("Row indices (VAUs): ", row_idx)
+        print("Column indices (Time Slots): ", col_idx)
 
     # Interpret results:
     au_time_slot_mapping = {}
@@ -185,31 +203,33 @@ def initial_user_time_slot_assignment(aggregate_users):
             au_time_slot_mapping[AU_id] = []
         au_time_slot_mapping[AU_id].append(int(assigned_slot))
 
-    print("Initial assignment:")
+    if utils.LOG_LEVEL >= 1:
+        print("Initial assignment:")
     for AU_id in au_time_slot_mapping:
         epsilon_used[AU_id] =(int(len(au_time_slot_mapping[AU_id])))
-        print(f"AU {AU_id} is assigned to slots {au_time_slot_mapping[AU_id]}")
-
+        if utils.LOG_LEVEL >= 1:
+            print(f"AU {AU_id} is assigned to slots {au_time_slot_mapping[AU_id]}")
     return au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used
 
 
 def residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used):
     """
     Assigns residual time slots to eligible Aggregate Users (AUs) according to specific conditions and constraints.
-
-    This function carries out the assignment of available time slots to AUs while considering their eligibility based on
-    the provided epsilon and epsilon_used constraints. The assignment is performed iteratively per time slot, and for
-    each slot, eligible AUs are ranked by their calculated rate and assigned to the available beams.
-
-    :param aggregate_users: List of AUs representing the aggregate users to be assigned to time slots.
-    :param au_time_slot_mapping: Dictionary that maps each AU ID to the list of already assigned time slots.
-    :param time_slot_au_mapping: Dictionary mapping time slots to the list of assigned AUs.
-    :param epsilon: Assignment threshold to determine eligibility for slot assignment.
-    :param epsilon_used: Dictionary tracking the number of times an AU has already been assigned, keyed by AU ID.
-    :return: A tuple containing the updated `au_time_slot_mapping`, `time_slot_au_mapping`, `epsilon`, and `epsilon_used`.
     """
-    print("epsilon", epsilon)
-    print("epsilon_used: ", epsilon_used)
+    if utils.LOG_LEVEL >= 1:
+        print("#" * 80)
+        print("Residual time slot assignment started...")
+        print("epsilon", epsilon)
+        print("epsilon_used: ", epsilon_used)
+
+    # Initialize mappings for any missing users
+    for au in aggregate_users:
+        if au.id not in au_time_slot_mapping:
+            au_time_slot_mapping[au.id] = []
+        # if au.id not in epsilon_used:
+        #     epsilon_used[au.id] = 0
+        # if au.id not in epsilon:
+        #     epsilon[au.id] = 1.0  # Default epsilon value, adjust as needed
 
     for t in range(utils.TOTAL_SLOTS):
         already_assigned = time_slot_au_mapping[t]
@@ -220,19 +240,21 @@ def residual_time_slot_assignment(aggregate_users, au_time_slot_mapping, time_sl
             if au_m not in already_assigned and needs_assignment(au_m, t, epsilon, epsilon_used, au_time_slot_mapping):
                 candidates.append(au_m)
 
-        candidates = [au_m for au_m in aggregate_users if
-                      au_m.id not in already_assigned and needs_assignment(au_m, t, epsilon, epsilon_used,
-                                                                           au_time_slot_mapping)]
         candidates.sort(key=lambda m: calculate_rate(m, t), reverse=True)
 
         for m in candidates[:free_beams]:
             epsilon_used[m.id] += 1
             time_slot_au_mapping[t].append(m)
             au_time_slot_mapping[m.id].append(t)
+    if utils.LOG_LEVEL >= 1:
+        print("#" * 80)
+        print("Residual time slot assignment completed...")
+        print("epsilon", epsilon)
+        print("epsilon_used: ", epsilon_used)
 
-    return  au_time_slot_mapping,time_slot_au_mapping, epsilon, epsilon_used
+    return au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used
 
-def print_time_slot_assignments(time_slot_au_mapping, epsilon, epsilon_used):
+def print_time_slot_assignments(time_slot_au_mapping,au_time_slot_mapping, epsilon, epsilon_used):
     """
     Prints the assignment of time slots to access units (AUs) along with epsilon values.
 
@@ -249,7 +271,20 @@ def print_time_slot_assignments(time_slot_au_mapping, epsilon, epsilon_used):
     :type epsilon_used: float
     :return: None
     """
-    for time_slot, users in sorted(time_slot_au_mapping.items()):
-        print(f"Time slot {time_slot} is assigned to AUs {[au.id for au in users]}")
-    print("epsilon:", epsilon)
-    print("epsilon_used:", epsilon_used)
+    if utils.LOG_LEVEL >= 1:
+        print("#" * 80)
+        print("Time slot to Aggregate User Assignments:")
+
+        for time_slot, users in sorted(time_slot_au_mapping.items()):
+            sorted_users = sorted(users, key=lambda x: x.id)
+            print(f"Time slot {time_slot} is assigned to AUs {[au.id for au in sorted_users]}")
+
+        print("#" * 80)
+        print("Aggregate User to Time Slot Assignments:")
+        for au_id, slots in sorted(au_time_slot_mapping.items()):
+            sorted_slots = sorted(slots)
+            print(f"AU {au_id} is assigned to time slots {sorted_slots}")
+        print("#" * 80)
+        print("epsilon:", epsilon)
+        print("epsilon_used:", epsilon_used)
+        print("#" * 80)

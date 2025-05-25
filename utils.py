@@ -7,12 +7,16 @@ BEAM_RADIUS = 3.5 *100
 USER_SWITCHING_THRESHOLD_HEAVY = 8
 USER_SWITCHING_THRESHOLD_LIGHT= 2
 TOTAL_BEAM_NUMBER = 4
-RATE_PER_USER = 163 #kbps based on paper
 SATELLITE_ALTITUDE = 2000 #km
 CARRIER_FREQUENCY = 20 * 10 ** 9 # carrier frequency 20 Ghz
 BANDWIDTH = 20 * 10 ** 6 #bandwidth 20 Mhz
 USER_WEIGHT_THRESHOLD = 5
 SUBCHANNEL_NUMBER = 10
+PACKET_SIZE = (500*1e3, 2500*1e3) #bit
+TIME_SLOT_DURATION = 10 # ms
+RATE_SCALING_FACTOR = 1e3
+LOG_LEVEL = 1  # 0: no logs, 1: basic logs, 2: detailed logs
+PLOT_LEVEL = 0  # 0: disable plots, 1: enable plots
 
 class User:
     """
@@ -45,20 +49,14 @@ class User:
         self.size = size_mb          # s_n
         self.weight = weight         # w_n
         self.deadline = deadline_slot  # T_max_n
+        self.group_id = -1  # For grouping users, if needed
 
     def coords(self):
         return np.array([self.x, self.y])
 
     def print_user(self):
-        print("User Id: " ,self.id ," x_coord: " ,self.x ," y_coord: " ,self.y, " data_size: ",self.size, " weight: ",self.weight," deadline: ",self.deadline, "")
+        print(f"User Id:  {self.id} Group Id {self.group_id}  x_coord:  {self.x:.2f} , y_coord:  {self.y:.2f}  data_size(kbits): {self.size/1e3:.2f},  weight: {self.weight} deadline: {self.deadline}")
 
-# def create_users(user_number):
-#     rng = np.random.default_rng()
-#     user_coords = rng.random((user_number, 2)) * 10  # 30 random points in 2-D, coordinates in range (0,10]
-#     user_list = []
-#     for i in range(user_number):
-#         user_list.append(User(i ,user_coords[i][0] ,user_coords[i][1]))
-#     return user_list
 
 def generate_users():
     """
@@ -74,27 +72,26 @@ def generate_users():
     n_users = USER_NUMBER
     area_side_km = USER_AREA
     slot_count = TOTAL_SLOTS
-    tau = 1.0  #slot length (s) – only matters for plotting
-    size_range = (100, 1500) # kbits
     rng = None
-
 
     rng = np.random.default_rng() if rng is None else rng
 
     coords = rng.random((n_users, 2)) * area_side_km
 
     # sizes in kbit (use .uniform if you prefer log‑normal etc.)
-    sizes = rng.uniform(*size_range, n_users)
+    sizes = rng.uniform(*PACKET_SIZE, n_users)
 
     # weights: pick from {1,2,3 ... 10} or make them continuous
     weights = rng.integers(1, 10, n_users)
 
-    # deadline slots: at least 5 slots after start and 2 before end
-    deadlines = rng.integers(5, slot_count-1, n_users)
+
+
+    # Generate deadlines ensuring they're feasible
+    deadlines = rng.integers(15, TOTAL_SLOTS-1, n_users)
 
     users = [User(i,
-                  coords[i,0], coords[i,1],
-                 sizes[i],
+                  coords[i, 0], coords[i, 1],
+                  sizes[i],
                   weights[i],
                   int(deadlines[i]))
              for i in range(n_users)]

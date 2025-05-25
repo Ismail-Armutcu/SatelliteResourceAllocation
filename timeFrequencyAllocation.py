@@ -1,3 +1,4 @@
+allocation_log = []  # Global log to track (user_id, time_slot, beam_id, subchannel_id, rate_kbps)
 import numpy as np
 import userGrouping
 import utils
@@ -50,8 +51,6 @@ def allocate_subchannels(aggregate_users, user_time_slot_beam_mapping, allocated
         low_priority_users.sort(key=lambda u: (-u.weight, u.deadline))
         user_priority_queue = high_priority_users + low_priority_users
 
-        print(f"Aggregate User Group Id: {au.id}, Users: {[u.id for u in au.usr]}")
-
         for user in user_priority_queue:
             user_rates = np.zeros((utils.TOTAL_SLOTS, utils.SUBCHANNEL_NUMBER))
             for t in range(utils.TOTAL_SLOTS):
@@ -61,18 +60,22 @@ def allocate_subchannels(aggregate_users, user_time_slot_beam_mapping, allocated
             max_rate_index = np.unravel_index(np.argmax(user_rates, axis=None), user_rates.shape)
             if np.ceil(user.size * 1000 / user_rates[max_rate_index]) > user.deadline:
                 # Cannot allocate resources, deadline cannot be met
-                print(
-                    f"User {user.id} cannot be scheduled: Size: {user.size * 1000}, Deadline: {user.deadline}, Max rate: {user_rates[max_rate_index]}")
+                if utils.LOG_LEVEL >= 1:
+                    print(f"User {user.id} with Group Id {user.group_id} cannot be scheduled: Size(kbits): {user.size/1000:.2f}, "
+                          f"Deadline: {user.deadline}, Max rate (Mbps): {user_rates[max_rate_index]/1e6:.2f}")
                 continue
 
             for time_slot, beam in user_time_slot_beam_mapping[user.id]:
                 max_subchannel = np.argmax(user_rates[time_slot])
+                user_size = user.size
                 while user.size > 0:
                     if allocated_subchannels[beam, time_slot, max_subchannel] == UNALLOCATED_SUBCHANNEL:
                         allocated_subchannels[beam, time_slot, max_subchannel] = user.id
-                        user.size -= user_rates[time_slot, max_subchannel] / 1000
+                        user.size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
+                        user_size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
+                        allocation_log.append((user.id, time_slot, beam, max_subchannel, user_rates[time_slot, max_subchannel]/1e6))  # Log allocation
                         user_rates[time_slot, max_subchannel] = 0
-                        break
+                        break #move to next time slot
                     else:
                         user_rates[time_slot, max_subchannel] = 0
                         max_subchannel = np.argmax(user_rates[time_slot])
@@ -93,9 +96,16 @@ def report_failed_users(aggregate_users):
     :type aggregate_users: list
     :return: None
     """
+
     failed_users = [user for au in aggregate_users for user in au.usr if user.size > 0]
-    print(f"{len(failed_users)} Failed users: {[user.id for user in failed_users]}")
-    print(f"Remaining rates: {[float(user.size) for user in failed_users]}")
+    if utils.LOG_LEVEL >= 1:
+        print("*" * 80)
+        print(f"Failed Users Report: {len(failed_users)} in total")
+        failed_users.sort(key=lambda x: x.id)
+        for user in failed_users:
+            print(f"Failed User ID: {user.id} GroupId {user.group_id} RemainingSize (kbits): {user.size/1000:.2f}, "
+                  f"Deadline: {user.deadline}, Weight: {user.weight}")
+
 
 def initialize_timeFrequencyStructures(time_slot_au_mapping):
     """
@@ -111,7 +121,8 @@ def initialize_timeFrequencyStructures(time_slot_au_mapping):
         user object that holds user IDs.
     :type time_slot_au_mapping: list[list[AggregateUser]]
 
-    :return: None
+    :return:user_time_slot_beam_mapping, allocated_subchannels
+    :rtype: user_time_slot_beam_mapping, allocated_subchannels
     """
     user_time_slot_beam_mapping = [[] for _ in range(utils.USER_NUMBER)]
     for time_slot in range(utils.TOTAL_SLOTS):
@@ -122,3 +133,18 @@ def initialize_timeFrequencyStructures(time_slot_au_mapping):
     allocated_subchannels = np.full((utils.TOTAL_BEAM_NUMBER, utils.TOTAL_SLOTS, utils.SUBCHANNEL_NUMBER),
                                     UNALLOCATED_SUBCHANNEL)
     return user_time_slot_beam_mapping, allocated_subchannels
+
+def print_allocation_summary(allocated_subchannels, user_time_slot_beam_mapping,users):
+    if utils.LOG_LEVEL >= 1:
+        print("\nAllocated Subchannels Summary:")
+        print("=" * 80)
+        for beam in range(utils.TOTAL_BEAM_NUMBER):
+            print(f"\nBeam {beam}:")
+            print("-" * 80)
+            for time_slot in range(utils.TOTAL_SLOTS):
+                subchannel_alloc = allocated_subchannels[beam][time_slot]
+                assigned_channels = [f"SC{i}->U{uid} (GroupId{users[uid].group_id}) " for i, uid in enumerate(subchannel_alloc) if uid != -1]
+                if assigned_channels:
+                    print(f"Time Slot {time_slot}: {', '.join(assigned_channels)}")
+                else:
+                    print(f"Time Slot {time_slot}: No allocations")

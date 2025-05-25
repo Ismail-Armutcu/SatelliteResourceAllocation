@@ -3,108 +3,16 @@ from scipy.spatial import distance_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 import utils
+import datetime
 
 
-
-def plot_users(user_list):
-    """
-    Generate a scatter plot for a list of users, marking their locations on a plot,
-    annotating them with their IDs, and drawing a convex hull around the boundary users.
-
-    The function creates a 2D visualization where each user's location is represented as a point
-    based on their x and y coordinates. It further divides the users into two groups — boundary users
-    and internal users — depending on whether they are part of the convex hull or not. A convex hull
-    is plotted to visually enclose the locations of the boundary users.
-
-    :param user_list: A list of user objects, where each user has attributes 'x', 'y', and 'id'.
-    :return: A Matplotlib plot object displaying users on a scatter plot with their IDs and convex hull.
-    """
-    x_coords = [user.x for user in user_list]
-    y_coords = [user.y for user in user_list]
-    # Create a scatter plot
-    plt.scatter(x_coords, y_coords, color='blue', label='Users')
-    # Add labels and title
-    plt.xlabel('X Coordinate')
-    plt.ylabel('Y Coordinate')
-    plt.title('User Coordinates')
-
-    # Annotate points with user IDs
-    for user in user_list:
-        plt.text(user.x, user.y, f"{user.id}", fontsize=9, ha='right')
-
-    user_coordinates = np.array([[user.x, user.y] for user in user_list])
-
-    hull = ConvexHull(user_coordinates)
-    boundary_users = []
-    internal_users = []
-    for user in user_list:
-        if user.id in hull.vertices:
-            boundary_users.append(user)
-        else:
-            internal_users.append(user)
-
-    for simplex in hull.simplices:
-        plt.plot(user_coordinates[simplex, 0], user_coordinates[simplex, 1], 'r-',
-                 label='Convex Hull' if 'Convex Hull' not in plt.gca().get_legend_handles_labels()[1] else "")
-    plt.legend(loc = 'upper right')
-    plt.grid(True)
-    plt.show()
-    return plt
+def get_timestamp_filename(prefix="user_groups_plot"):
+    """Generate a filename with timestamp"""
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{prefix}_{timestamp}.png"
 
 
-def plot_users2(user_list, user_set_Im, virtual_center_x, virtual_center_y):
-    """
-    Plots all users, their convex hull, and highlights specific users within a circular region.
-
-    :param user_list: List of all user objects. Each user has `x` and `y` coordinates and an `id`.
-    :param user_set_Im: Subset of users (list) to be highlighted with the circular boundary.
-    :param virtual_center_x: X-coordinate of the center of the circular region.
-    :param virtual_center_y: Y-coordinate of the center of the circular region.
-    """
-
-    # Extract coordinates of all users
-    user_coordinates = np.array([[user.x, user.y] for user in user_list])
-
-    # Begin plotting all users
-    plt.figure(figsize=(10, 10))
-
-    # Plot all users as points
-    plt.scatter(user_coordinates[:, 0], user_coordinates[:, 1], c='blue', label='All Users')
-    # Annotate points with user IDs
-    for user in user_list:
-        plt.text(user.x, user.y+0.2, f"{user.id}", fontsize=15, ha='center')
-
-    # Compute and plot convex hull
-    if len(user_coordinates) > 2:  # ConvexHull needs at least 3 points
-        hull = ConvexHull(user_coordinates)
-        for simplex in hull.simplices:
-            plt.plot(user_coordinates[simplex, 0], user_coordinates[simplex, 1], 'k-')
-        plt.plot(user_coordinates[hull.vertices, 0], user_coordinates[hull.vertices, 1], 'orange', linewidth=2,
-                 label="Convex Hull")
-
-    # Plot specific user_set_Im within circular boundary
-    user_set_Im_coords = np.array([[user.x, user.y] for user in user_set_Im])
-    plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red', label="Users in Im")
-
-    # Plot circular boundary
-    circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3,
-                        label="Beam Radius")
-    plt.text(virtual_center_x + 0.1, virtual_center_y + 0.1, "Center", fontsize=10, color='red')
-    plt.gca().add_patch(circle)
-    plt.scatter(virtual_center_x, virtual_center_y, c='green',marker = 'x')
-
-    # Add labels and legend
-    plt.gca().set_aspect('equal', adjustable='box')
-    plt.title("User Positions and Convex Hull")
-    plt.xlabel("X Coordinate")
-    plt.ylabel("Y Coordinate")
-    plt.legend()
-    plt.grid(True)
-
-    # Show plot
-    plt.show()
-
-def plot_users3(user_list, user_groups, virtual_center_list):
+def plot_users(user_list, user_groups, virtual_center_list, plotName="user_groups_plot"):
     """
     Plots all users, their convex hull, and highlights specific users groups within a circular region.
 
@@ -112,58 +20,61 @@ def plot_users3(user_list, user_groups, virtual_center_list):
     :param user_groups: Subset of users (list) to be highlighted with the circular boundary.
     :param virtual_center_list: X-Y coordinates of the centers of the circular regions.
       """
+    if utils.PLOT_LEVEL >= 1:
+        # Extract coordinates of all users
+        user_coordinates = np.array([[user.x, user.y] for user in user_list])
 
-    # Extract coordinates of all users
-    user_coordinates = np.array([[user.x, user.y] for user in user_list])
+        # Begin plotting all users
+        plt.figure(figsize=(10, 10))
+        x_coords = [user.x for user in user_list]
+        y_coords = [user.y for user in user_list]
 
-    # Begin plotting all users
-    plt.figure(figsize=(10, 10))
-    x_coords = [user.x for user in user_list]
-    y_coords = [user.y for user in user_list]
+        # Plot all users as points
+        plt.scatter(x_coords, y_coords, c='blue', label='All Users')
+        # Annotate points with user IDs
+        # for user in user_list:
+        #     plt.text(user.x, user.y+0.2, f"{user.id}", fontsize=15, ha='center')
 
-    # Plot all users as points
-    plt.scatter(x_coords, y_coords, c='blue', label='All Users')
-    # Annotate points with user IDs
-    # for user in user_list:
-    #     plt.text(user.x, user.y+0.2, f"{user.id}", fontsize=15, ha='center')
+        # Compute and plot convex hull
+        if len(user_coordinates) > 2:  # ConvexHull needs at least 3 points
+            hull = ConvexHull(user_coordinates)
+            for simplex in hull.simplices:
+                plt.plot(user_coordinates[simplex, 0], user_coordinates[simplex, 1], 'k-')
+            vertices = list(hull.vertices)
+            vertices.append(vertices[0])
+            plt.plot(user_coordinates[vertices, 0], user_coordinates[vertices, 1], 'orange', linewidth=2,
+                     label="Convex Hull")
+        for user_sets in user_groups:
+            # Plot specific user_set_Im within circular boundary
+            user_set_Im_coords = np.array([[user.x, user.y] for user in user_sets])
 
-    # Compute and plot convex hull
-    if len(user_coordinates) > 2:  # ConvexHull needs at least 3 points
-        hull = ConvexHull(user_coordinates)
-        for simplex in hull.simplices:
-            plt.plot(user_coordinates[simplex, 0], user_coordinates[simplex, 1], 'k-')
-        vertices = list(hull.vertices)
-        vertices.append(vertices[0])
-        plt.plot(user_coordinates[vertices, 0], user_coordinates[vertices, 1], 'orange', linewidth=2,
-                 label="Convex Hull")
-    for user_sets in user_groups:
-        # Plot specific user_set_Im within circular boundary
-        user_set_Im_coords = np.array([[user.x, user.y] for user in user_sets])
+            virtual_center_index = user_groups.index(user_sets)
+            virtual_center_x, virtual_center_y = virtual_center_list[virtual_center_index]
+            # Plot circular boundary
+            if virtual_center_index == 1:
+                plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red', label="User Group")
+                circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3,
+                                    label="Beam Radius")
+            else:
+                plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red')
+                circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3)
+            plt.text(virtual_center_x + 0.1, virtual_center_y + 0.1, "Center", fontsize=10, color='red')
+            plt.gca().add_patch(circle)
+            plt.scatter(virtual_center_x, virtual_center_y, c='green',marker = 'x')
 
-        virtual_center_index = user_groups.index(user_sets)
-        virtual_center_x, virtual_center_y = virtual_center_list[virtual_center_index]
-        # Plot circular boundary
-        if virtual_center_index == 1:
-            plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red', label="User Group")
-            circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3,
-                                label="Beam Radius")
-        else:
-            plt.scatter(user_set_Im_coords[:, 0], user_set_Im_coords[:, 1], c='red')
-            circle = plt.Circle((virtual_center_x, virtual_center_y), utils.BEAM_RADIUS, color='green', alpha=0.3)
-        plt.text(virtual_center_x + 0.1, virtual_center_y + 0.1, "Center", fontsize=10, color='red')
-        plt.gca().add_patch(circle)
-        plt.scatter(virtual_center_x, virtual_center_y, c='green',marker = 'x')
+        # Add labels and legend
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.title("User Positions and Convex Hull")
+        plt.xlabel("X Coordinate")
+        plt.ylabel("Y Coordinate")
+        plt.legend()
+        plt.grid(True)
 
-    # Add labels and legend
-    plt.gca().set_aspect('equal', adjustable='box')
-    plt.title("User Positions and Convex Hull")
-    plt.xlabel("X Coordinate")
-    plt.ylabel("Y Coordinate")
-    plt.legend()
-    plt.grid(True)
 
-    # Show plot
-    plt.show()
+
+        filename = get_timestamp_filename(plotName)
+        plt.savefig(   "plots/"+filename, dpi=300, bbox_inches='tight')
+        plt.show()
 
 def find_minimum_circle_from_three_user(GUn1, GUn2, GUn3):
     """
@@ -185,16 +96,19 @@ def find_minimum_circle_from_three_user(GUn1, GUn2, GUn3):
               (numpy array) and the radius of the circle (float). Returns None
               if the points are collinear.
     """
-    if GUn1 == None or GUn2 == None or GUn3 == None:
-        print("One of the users is None!!!!")
+    if utils.LOG_LEVEL >= 2:
+        if GUn1 == None or GUn2 == None or GUn3 == None:
+            print("One of the users is None!!!!")
     A = np.array([GUn1.x, GUn1.y])
     B = np.array([GUn2.x, GUn2.y])
     C = np.array([GUn3.x, GUn3.y])
 
     # Calculate circum center
     D = 2 * (A[0] * (B[1] - C[1]) + B[0] * (C[1] - A[1]) + C[0] * (A[1] - B[1]))
+    
     if np.abs(D) < 1e-10:  # Handling degenerate case if the points are collinear
-        print("The points are collinear; cannot form a circle.")
+        if utils.LOG_LEVEL >= 2:
+            print("The points are collinear; cannot form a circle.")
         return
 
     ux = ((A[0] ** 2 + A[1] ** 2) * (B[1] - C[1]) +
@@ -239,7 +153,8 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
     center_y = None
     radius = None
     if len(user_set_Im) < 2:
-        print("Not enough users in Im to form a circle.")
+        if utils.LOG_LEVEL >= 2:
+            print("Not enough users in Im to form a circle.")
         return radius, center_x, center_y
 
     for i in range(len(user_set_Im)-1):
@@ -272,7 +187,8 @@ def minimum_enclosing_circle_based_group_position_update(user_set_Im,user_set_Im
             if user in user_set_Imc:
                 user_set_Imc.remove(user)
             user_set_Im.append(user)
-            print(len(temp_user_set)," Users are added to Im !!!!!####***ALGO COMPLETED!!!!!####***")
+            if utils.LOG_LEVEL >= 2:
+                print(len(temp_user_set)," Users are added to Im !!!!!####***ALGO COMPLETED!!!!!####***")
         return radius, center_x, center_y
     else:
         # c. Select an Ungrouped GU from Imc
@@ -474,7 +390,8 @@ def perform_user_switching(user_groups, virtual_centers):
 
 
         if len(candidate_target_groups) == 0:
-            print("No candidate target groups found.")
+            if utils.LOG_LEVEL >= 2:
+                print("No candidate target groups found.")
             continue
         elif len(candidate_target_groups) == 1:
             # select the only candidate
@@ -574,33 +491,38 @@ def group_users():
                                                                          distance_weights, distance_matrix_var)
         user_groups.append(user_set_1)
         virtual_centers.append(np.array([virtual_center_x, virtual_center_y]))
-        # plot_users2(user_list,user_set_1,virtual_center_x,virtual_center_y)
-    plot_users3(user_list, user_groups, virtual_centers)
+
+    plot_users(user_list, user_groups, virtual_centers,"Inıtial User Grouping Before Switching")
     if len(internal_users) != 0:
-        print("!!!!*****####Internal Users Will be Grouped Separately!!!!*****####")
+        if utils.LOG_LEVEL >= 2:
+            print("!!!!*****####Internal Users Will be Grouped Separately!!!!*****####")
         ungrouped_users = internal_users
         internal_users = []
         group_ungrouped_internal_users(ungrouped_users, distance_weights, distance_matrix_var, user_groups,
                                        virtual_centers)
-        plot_users3(user_list, user_groups, virtual_centers)
+        plot_users(user_list, user_groups, virtual_centers,"Internal User Grouping Before Switching")
 
     # Create an array of the lengths of each user group
     user_group_lengths_before = [len(user_set) for user_set in user_groups]
     new_virtual_centers = perform_user_switching(user_groups, virtual_centers)
-    plot_users3(user_list, user_groups, new_virtual_centers)
+    plot_users(user_list, user_groups, new_virtual_centers,"User Grouping After Switching")
     user_group_lengths_after = [len(user_set) for user_set in user_groups]
-    print(f"Lengths of user groups before switching: {user_group_lengths_before}")
-    print(f"Lengths of user groups after switching: {user_group_lengths_after}")
+    if utils.LOG_LEVEL >= 1:
+        print(f"Lengths of user groups before switching: {user_group_lengths_before}")
+        print(f"Lengths of user groups after switching: {user_group_lengths_after}")
     # Plot user group lengths before and after switching
-    plt.figure(figsize=(10, 6))
-    plt.plot(range(1, len(user_group_lengths_before) + 1), user_group_lengths_before, label="Before Switching",
-             marker='x')
-    plt.plot(range(1, len(user_group_lengths_after) + 1), user_group_lengths_after, label="After Switching", marker='o')
-    plt.xlabel("User Group Index")
-    plt.ylabel("Number of Users")
-    plt.title("User Group Sizes Before and After Switching")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    if utils.PLOT_LEVEL >=1:
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, len(user_group_lengths_before) + 1), user_group_lengths_before, label="Before Switching",
+                 marker='x')
+        plt.plot(range(1, len(user_group_lengths_after) + 1), user_group_lengths_after, label="After Switching", marker='o')
+        plt.xlabel("User Group Index")
+        plt.ylabel("Number of Users")
+        plt.title("User Group Sizes Before and After Switching")
+        plt.legend()
+        plt.grid(True)
+        filename = get_timestamp_filename("group_sizes_plot")
+        plt.savefig("plots/"+filename, dpi=300, bbox_inches='tight')
+        plt.show()
 
     return user_groups, new_virtual_centers
