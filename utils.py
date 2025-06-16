@@ -12,7 +12,7 @@ CARRIER_FREQUENCY = 20 * 10 ** 9 # carrier frequency 20 Ghz
 BANDWIDTH = 20 * 10 ** 6 #bandwidth 20 Mhz
 USER_WEIGHT_THRESHOLD = 5
 SUBCHANNEL_NUMBER = 10
-PACKET_SIZE = (500*1e3, 2500*1e3) #bit
+PACKET_SIZE = (5000*1e3, 10000*1e3) #bit
 TIME_SLOT_DURATION = 10 # ms
 RATE_SCALING_FACTOR = 1e3
 LOG_LEVEL = 1  # 0: no logs, 1: basic logs, 2: detailed logs
@@ -50,6 +50,7 @@ class User:
         self.weight = weight         # w_n
         self.deadline = deadline_slot  # T_max_n
         self.group_id = -1  # For grouping users, if needed
+        self.is_failed = False  # Flag to indicate if the user failed to meet their deadline
 
     def coords(self):
         return np.array([self.x, self.y])
@@ -78,16 +79,17 @@ def generate_users():
 
     coords = rng.random((n_users, 2)) * area_side_km
 
-    # sizes in kbit (use .uniform if you prefer log‑normal etc.)
-    sizes = rng.uniform(*PACKET_SIZE, n_users)
-
     # weights: pick from {1,2,3 ... 10} or make them continuous
     weights = rng.integers(1, 10, n_users)
 
-
-
+    # sizes in kbit (use .uniform if you prefer log‑normal etc.)
+    sizes = rng.uniform(*PACKET_SIZE, n_users)
     # Generate deadlines ensuring they're feasible
     deadlines = rng.integers(15, TOTAL_SLOTS-1, n_users)
+
+    for i in range(n_users):
+        user_size = rng.uniform(*PACKET_SIZE)
+        user_deadline = rng.integers(15, TOTAL_SLOTS - 1)
 
     users = [User(i,
                   coords[i, 0], coords[i, 1],

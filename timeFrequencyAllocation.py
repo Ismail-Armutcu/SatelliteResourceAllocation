@@ -58,22 +58,27 @@ def allocate_subchannels(aggregate_users, user_time_slot_beam_mapping, allocated
                     user_rates[t, f] = determine_subchannel_rates(user, t, f)
 
             max_rate_index = np.unravel_index(np.argmax(user_rates, axis=None), user_rates.shape)
-            if np.ceil(user.size * 1000 / user_rates[max_rate_index]) > user.deadline:
+            if np.ceil(user.size / user_rates[max_rate_index]) > user.deadline:
                 # Cannot allocate resources, deadline cannot be met
                 if utils.LOG_LEVEL >= 1:
-                    print(f"User {user.id} with Group Id {user.group_id} cannot be scheduled: Size(kbits): {user.size/1000:.2f}, "
-                          f"Deadline: {user.deadline}, Max rate (Mbps): {user_rates[max_rate_index]/1e6:.2f}")
+                    user.is_failed = True
+                    print(f"User {user.id} with Group Id {user.group_id} cannot be scheduled1: Size(bits): {user.size:.2f}, "
+                          f"Deadline: {user.deadline}, Max rate (bps): {user_rates[max_rate_index]:.2f}")
                 continue
-
+            user_size = user.size
             for time_slot, beam in user_time_slot_beam_mapping[user.id]:
+                if user.is_failed or time_slot > user.deadline:
+                     continue
+
                 max_subchannel = np.argmax(user_rates[time_slot])
-                user_size = user.size
-                while user.size > 0:
+
+                while user_size > 0:
                     if allocated_subchannels[beam, time_slot, max_subchannel] == UNALLOCATED_SUBCHANNEL:
+                        print(f"isodol userId: {user.id} time_slot: {time_slot} beam: {beam} subchannel: {max_subchannel} rate: {user_rates[time_slot, max_subchannel]} user.size{user_size} ")
                         allocated_subchannels[beam, time_slot, max_subchannel] = user.id
-                        user.size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
+                        #user.size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
                         user_size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
-                        allocation_log.append((user.id, time_slot, beam, max_subchannel, user_rates[time_slot, max_subchannel]/1e6))  # Log allocation
+                        allocation_log.append((user.id, time_slot, beam, max_subchannel, user_rates[time_slot, max_subchannel]))  # Log allocation
                         user_rates[time_slot, max_subchannel] = 0
                         break #move to next time slot
                     else:
@@ -97,13 +102,13 @@ def report_failed_users(aggregate_users):
     :return: None
     """
 
-    failed_users = [user for au in aggregate_users for user in au.usr if user.size > 0]
+    failed_users = [user for au in aggregate_users for user in au.usr if user.is_failed ==True]
     if utils.LOG_LEVEL >= 1:
         print("*" * 80)
         print(f"Failed Users Report: {len(failed_users)} in total")
         failed_users.sort(key=lambda x: x.id)
         for user in failed_users:
-            print(f"Failed User ID: {user.id} GroupId {user.group_id} RemainingSize (kbits): {user.size/1000:.2f}, "
+            print(f"Failed User ID: {user.id} GroupId {user.group_id} RemainingSize (bits): {user.size:.2f}, "
                   f"Deadline: {user.deadline}, Weight: {user.weight}")
 
 
