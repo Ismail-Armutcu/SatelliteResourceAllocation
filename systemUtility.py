@@ -2,7 +2,7 @@
 import numpy as np
 import utils
 
-def compute_user_utilities(users, allocation_log, lambda_1=0.5, lambda_2=0.5):
+def compute_user_utilities(users, allocation_log, lambda_1=utils.LAMBDA_1, lambda_2=0.3):
     """
     Calculate system utility based on successful transmissions and energy consumption.
 
@@ -19,9 +19,14 @@ def compute_user_utilities(users, allocation_log, lambda_1=0.5, lambda_2=0.5):
     user_completion_time = {}
 
     # Constants
-    power_watt = 40  # Assumed constant transmit power
+    power_watt = utils.TRANSMIT_POWER  # Assumed constant transmit power
 
     for uid, t, beam, sc, rate in allocation_log:
+        if uid not in user_data_sent:
+            # Skip or log a warning when an allocation log entry references an unknown user
+            if utils.LOG_LEVEL >= 1:
+                print(f"Warning: User id {uid} in allocation_log but missing from users list -- skipping this record.")
+            continue
         sent_this_slot = rate * utils.TIME_SLOT_DURATION / 1000  # in bits
         user_data_sent[uid] += sent_this_slot
         user_energy[uid] += power_watt *  utils.TIME_SLOT_DURATION / 1000 # Joules
@@ -33,6 +38,7 @@ def compute_user_utilities(users, allocation_log, lambda_1=0.5, lambda_2=0.5):
     E_max, E_min = max(energy_vals), min(energy_vals)
 
     user_utilities = []
+    total_utility = 0.0
     for uid in user_info:
         deadline = user_info[uid]['deadline']
         size = user_info[uid]['size']
@@ -46,18 +52,20 @@ def compute_user_utilities(users, allocation_log, lambda_1=0.5, lambda_2=0.5):
         E_n = (E_max - user_energy[uid]) / (E_max - E_min + 1e-8) if E_max > E_min else 1
         U_n = lambda_1 * eta_n - lambda_2 * E_n
         user_utilities.append((U_n,uid))
+        total_utility+=U_n
 
-    total_utility = np.sum(user_utilities)
-    
-    print("\nAllocation Log:")
-    print("User ID | Time Slot | Beam | Subchannel | Rate (Mbps) | Completion Time | Deadline | Status")
-    print("-" * 80)
+
+
+    if utils.LOG_LEVEL >= 1:
+        print("\nAllocation Log:")
+        print("User ID | Time Slot | Beam | Subchannel | Rate (Mbps) | Completion Time | Deadline | Status")
+        print("-" * 80)
     for entry in allocation_log:
         uid, t, beam, sc, rate = entry
         completion_status = "Completed" if uid in user_completion_time and user_completion_time[uid] <= user_info[uid][
             'deadline'] else "Failed"
-        
-        print(f"{uid:7d} | {t:9d} | {beam:4d} | {sc:10d} | {rate:11.2f} | {user_completion_time.get(uid, 'N/A'):15} | {user_info[uid]['deadline']:8d} | {completion_status}")
+        if utils.LOG_LEVEL >= 1:
+            print(f"{uid:7d} | {t:9d} | {beam:4d} | {sc:10d} | {rate:11.2f} | {user_completion_time.get(uid, 'N/A'):15} | {user_info[uid]['deadline']:8d} | {completion_status}")
 
         # Set failed flag for users who did not complete in time
         if completion_status == "Failed":

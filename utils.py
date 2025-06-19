@@ -1,6 +1,8 @@
 import numpy as np
 
-USER_NUMBER = 100
+import utils
+
+USER_NUMBER = 50
 USER_AREA = 10*100 #km
 TOTAL_SLOTS = 30
 BEAM_RADIUS = 3.5 *100
@@ -12,10 +14,13 @@ CARRIER_FREQUENCY = 20 * 10 ** 9 # carrier frequency 20 Ghz
 BANDWIDTH = 20 * 10 ** 6 #bandwidth 20 Mhz
 USER_WEIGHT_THRESHOLD = 5
 SUBCHANNEL_NUMBER = 10
-PACKET_SIZE = (5000*1e3, 10000*1e3) #bit
+PACKET_SIZE = (5*1e3, 10*1e3) #bit
 TIME_SLOT_DURATION = 10 # ms
-RATE_SCALING_FACTOR = 1e3
-LOG_LEVEL = 1  # 0: no logs, 1: basic logs, 2: detailed logs
+RATE_SCALING_FACTOR = 1
+TRANSMIT_POWER = 40  # Watts
+LAMBDA_1 = 0.5  # Weight for reward in utility calculation
+RNG_SEED = 42
+LOG_LEVEL = 0  # 0: no logs, 1: basic logs, 2: detailed logs
 PLOT_LEVEL = 0  # 0: disable plots, 1: enable plots
 
 class User:
@@ -75,7 +80,7 @@ def generate_users():
     slot_count = TOTAL_SLOTS
     rng = None
 
-    rng = np.random.default_rng() if rng is None else rng
+    rng = np.random.default_rng(utils.RNG_SEED) if rng is None else rng
 
     coords = rng.random((n_users, 2)) * area_side_km
 

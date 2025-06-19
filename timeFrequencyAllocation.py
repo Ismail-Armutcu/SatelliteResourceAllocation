@@ -74,7 +74,6 @@ def allocate_subchannels(aggregate_users, user_time_slot_beam_mapping, allocated
 
                 while user_size > 0:
                     if allocated_subchannels[beam, time_slot, max_subchannel] == UNALLOCATED_SUBCHANNEL:
-                        print(f"isodol userId: {user.id} time_slot: {time_slot} beam: {beam} subchannel: {max_subchannel} rate: {user_rates[time_slot, max_subchannel]} user.size{user_size} ")
                         allocated_subchannels[beam, time_slot, max_subchannel] = user.id
                         #user.size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
                         user_size -= user_rates[time_slot, max_subchannel]  * utils.TIME_SLOT_DURATION / 1000
