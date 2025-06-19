@@ -41,13 +41,14 @@ def format_allocation_log(allocation_log):
 
     return result
 
-def calculate_utility(userNumber=100, transmitPower=40, lambda_1=0.5, bandwidth=20e6, rngSeed=42) :
+def calculate_utility(userNumber=100, transmitPower=40, lambda_1=0.5, bandwidth=20e6, rngSeed=42, beamRadius = 3.5 *100) :
     # Main logic starts here
     utils.USER_NUMBER = userNumber
     utils.TRANSMIT_POWER = transmitPower
     utils.LAMBDA_1 = lambda_1
     utils.BANDWIDTH = bandwidth
     utils.RNG_SEED = rngSeed
+    utils.BEAM_RADIUS = beamRadius
     user_groups, virtual_centers = userGrouping.group_users()
     user_groups2 = user_groups
     aggregate_users = timeSlotAllocation.create_aggregate_users(user_groups)
@@ -82,7 +83,7 @@ def calculate_utility(userNumber=100, transmitPower=40, lambda_1=0.5, bandwidth=
     print("Simulation completed.")
     print(f"Simulation Parameters: ")
     print(f"User Number: {utils.USER_NUMBER}, Transmit Power: {utils.TRANSMIT_POWER} W, "
-          f"Lambda 1: {utils.LAMBDA_1}, Bandwidth: {utils.BANDWIDTH / 1e6} MHz, RNG Seed: {utils.RNG_SEED}")
+          f"Lambda 1: {utils.LAMBDA_1}, Bandwidth: {utils.BANDWIDTH / 1e6} MHz, RNG Seed: {utils.RNG_SEED} beamRadius: {beamRadius} km")
     print("System Utility:", total_utility)
     return total_utility
 
@@ -136,6 +137,16 @@ def main():
     for i in transmitPower_UserNumber_SweepList:
         print(i)
 
+    bandwidth_radius_lamdba_SweepList = []
+    for radius in np.arange(150,170,15):
+        for lambda_1 in np.arange(0.5,0.7,0.1):
+            bandwidth_radius_lamdba_SweepList_Temp = []
+            for bandwidth in np.arange(15e6,40e6,5e6):
+                bandwidth_radius_lamdba_SweepList_Temp.append(float(calculate_utility(beamRadius=radius, bandwidth=bandwidth, lambda_1=lambda_1)))
+            bandwidth_radius_lamdba_SweepList.append(bandwidth_radius_lamdba_SweepList_Temp)
+    print("bandwidth_radius_lambda Sweep Results:")
+    for i in bandwidth_radius_lamdba_SweepList:
+        print(i)
 
 
 
