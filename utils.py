@@ -20,7 +20,7 @@ RATE_SCALING_FACTOR = 1
 TRANSMIT_POWER = 40  # Watts
 LAMBDA_1 = 0.5  # Weight for reward in utility calculation
 RNG_SEED = 42
-LOG_LEVEL = 0  # 0: no logs, 1: basic logs, 2: detailed logs
+LOG_LEVEL = 0 # 0: no logs, 1: basic logs, 2: detailed logs
 PLOT_LEVEL = 0  # 0: disable plots, 1: enable plots
 
 class User:
