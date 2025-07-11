@@ -318,6 +318,7 @@ def bandwidth_radius_lambda_sweep():
             for bandwidth in np.arange(15e6, 40e6, 5e6):
                 utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=bandwidth, lambda_1=lambda_1)
                 bandwidth_radius_lamdba_SweepList_Temp_utility.append(utility)
+                bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency.append(allocation_efficiency)
             bandwidth_radius_lamdba_SweepList_utility.append(bandwidth_radius_lamdba_SweepList_Temp_utility)
             bandwidth_radius_lamdba_SweepList_alloc_efficiency.append(bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency)
     print("bandwidth_radius_lambda Sweep Results:")
