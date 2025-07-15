@@ -207,6 +207,7 @@ def usernumber_sweep():
     lambda_values = np.arange(0.5, 0.79, 0.1)
     for idx, data in enumerate(userNumberSweepListAllocEfficiency):
         plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')
+        break
     plt.xlabel('Number of Users')
     plt.ylabel('Allocation Efficiency (%)')
     plt.title('Allocation Efficiency vs Number of Users')
@@ -255,6 +256,7 @@ def transmitpower_bandwidth_lambda_sweep():
     plt.figure(figsize=(10, 6))
     for idx, result in enumerate(transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency):
         plt.plot(x, result, marker='o', label=combinations[idx])
+        break
     plt.xlabel('Transmit Power (W)')
     plt.ylabel('Allocation Efficiency (%)')
     plt.title('Allocation Efficiency (%) vs Transmit Power for Different Bandwidth and λ Values')
@@ -351,4 +353,33 @@ def bandwidth_radius_lambda_sweep():
     plt.title('Allocation Efficiency (%) vs Bandwidth')
     plt.grid(True)
     plt.legend()
+    plt.show()
+
+def radius_sweep():
+    radius_SweepList_alloc_efficiency = []
+    radius_SweepList_utility = []
+    for radius in np.arange(100, 400, 10):
+        utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=20e6, lambda_1=0.6)
+        radius_SweepList_alloc_efficiency.append(allocation_efficiency)
+        radius_SweepList_utility.append(utility)
+    print("bandwidth_radius_lambda Sweep Results:")
+    for i in radius_SweepList_alloc_efficiency:
+        print(i)
+
+    x = np.arange(100, 400, 10)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, radius_SweepList_utility, marker='o')
+    plt.xlabel('Beam Radius (km)')
+    plt.ylabel('System Utility')
+    plt.title('System Utility vs Beam Radius')
+    plt.grid(True)
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, radius_SweepList_alloc_efficiency, marker='o')
+    plt.xlabel('Beam Radius (km)')
+    plt.ylabel('Allocation Efficiency (%)')
+    plt.title('Allocation Efficiency (%) vs Beam Radius')
+    plt.grid(True)
     plt.show()

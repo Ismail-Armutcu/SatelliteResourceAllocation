@@ -39,6 +39,8 @@ def main():
 
     systemUtility.bandwidth_radius_lambda_sweep()
 
+    systemUtility.radius_sweep()
+
 
 
 
