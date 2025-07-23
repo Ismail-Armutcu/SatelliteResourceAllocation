@@ -2,7 +2,7 @@ import numpy as np
 
 import utils
 
-USER_NUMBER = 50
+USER_NUMBER = 100
 USER_AREA = 10*100 #km
 TOTAL_SLOTS = 30
 BEAM_RADIUS = 3.5 *100 #km # radius of beam in km

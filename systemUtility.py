@@ -120,6 +120,7 @@ def calculate_utility(userNumber=100, transmitPower=40, lambda_1=0.6, bandwidth=
     utils.BANDWIDTH = bandwidth
     utils.RNG_SEED = rngSeed
     utils.BEAM_RADIUS = beamRadius
+    utils.SUBCHANNEL_NUMBER = int(bandwidth / 2e6)  # Update subchannel number based on bandwidth
     user_groups, virtual_centers = userGrouping.group_users()
     user_groups2 = user_groups
     aggregate_users = timeSlotAllocation.create_aggregate_users(user_groups)
@@ -358,15 +359,15 @@ def bandwidth_radius_lambda_sweep():
 def radius_sweep():
     radius_SweepList_alloc_efficiency = []
     radius_SweepList_utility = []
-    for radius in np.arange(100, 400, 10):
-        utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=20e6, lambda_1=0.6)
+    for radius in np.arange(100, 800, 10):
+        utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=20e6, lambda_1=0.6, userNumber=300)
         radius_SweepList_alloc_efficiency.append(allocation_efficiency)
         radius_SweepList_utility.append(utility)
     print("bandwidth_radius_lambda Sweep Results:")
     for i in radius_SweepList_alloc_efficiency:
         print(i)
 
-    x = np.arange(100, 400, 10)
+    x = np.arange(100, 800, 10)
 
     plt.figure(figsize=(10, 6))
     plt.plot(x, radius_SweepList_utility, marker='o')
