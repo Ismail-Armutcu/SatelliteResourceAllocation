@@ -383,3 +383,45 @@ def radius_sweep():
     plt.title('Allocation Efficiency (%) vs Beam Radius')
     plt.grid(True)
     plt.show()
+
+
+
+def carrierFreq_sweep():
+    carrierFreq_SweepList_Utility = []
+    carrierFreq_SweepList_Alloc_Efficiency = []
+    carrierFreq_range = np.arange(20 * 10**9, 50 * 10**9, 10**9)
+    for carrierFreq in carrierFreq_range:
+        utils.CARRIER_FREQUENCY = carrierFreq
+        utility, allocation_efficiency = calculate_utility()
+        carrierFreq_SweepList_Utility.append(utility)
+        carrierFreq_SweepList_Alloc_Efficiency.append(allocation_efficiency)
+
+    print("transmitPower_bandwidth_lambda Sweep Results:")
+    for i in carrierFreq_SweepList_Utility:
+        print(i)
+    # Plot utility vs transmit power for specified combinations
+
+    combinations = [
+        ('B=20MHz, λ=0.6'),
+        ('B=30MHz, λ=0.6'),
+        ('B=20MHz, λ=0.7'),
+        ('B=30MHz, λ=0.7')
+    ]
+    x = np.arange(20, 42, 2)
+    plt.figure(figsize=(10, 6))
+
+    plt.plot(carrierFreq_range, carrierFreq_SweepList_Utility, marker='o')
+    plt.xlabel('Carrier Frequency (Hz)')
+    plt.ylabel('System Utility')
+    plt.title('System Utility vs Carrier Frequency (Hz)')
+    plt.grid(True)
+    plt.show()
+
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(carrierFreq_range, carrierFreq_SweepList_Alloc_Efficiency, marker='o')
+    plt.xlabel('Carrier Frequency (Hz)')
+    plt.ylabel('Allocation Efficiency (%)')
+    plt.title('Allocation Efficiency (%) vs Carrier Frequency (Hz)')
+    plt.grid(True)
+    plt.show()

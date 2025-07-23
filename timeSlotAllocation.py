@@ -104,7 +104,7 @@ def calculate_rate(vau, t, f = utils.CARRIER_FREQUENCY):
     c = 3 * 10 ** 8 # speed of light
     L = (c / (4 * np.pi * f * distance)) ** 2 # free space path loss
     x = (p * g_t * g_r * L) / (N_0 * utils.BANDWIDTH)
-    rate = utils.BANDWIDTH * np.log(1+x)
+    rate = utils.BANDWIDTH * np.log10(1+x)
     if utils.LOG_LEVEL >= 2:
         print(f"Satellite position at time {t}: ({satellite_x:.2f}, {satellite_y:.2f}), User position: ({vau.x:.2f}, {vau.y:.2f}), Distance: {distance:.2f} m, Rate: {rate * utils.RATE_SCALING_FACTOR /1e6:.2f} Mbps")
     return rate * utils.RATE_SCALING_FACTOR

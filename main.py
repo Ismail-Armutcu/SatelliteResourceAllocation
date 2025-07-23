@@ -32,14 +32,17 @@ def main():
 
 
     systemUtility.usernumber_sweep()
-
+    #
     systemUtility.transmitpower_bandwidth_lambda_sweep()
-
+    #
     systemUtility.transmitpower_usernumber_sweep()
-
+    #
     systemUtility.bandwidth_radius_lambda_sweep()
-
+    #
     systemUtility.radius_sweep()
+
+    systemUtility.carrierFreq_sweep()
+
 
 
 
