@@ -7,7 +7,19 @@ import systemUtility
 
 
 
-
+def calculate_rate():
+    f = 20e9  # Hz (Ku-band downlink)
+    distance = 600e3  # meters (LEO orbit)
+    p = 40  # Watts (per beam transmit power)
+    g_t = 10 ** 5  # satellite antenna gain (40 dBi)
+    g_r = 10 ** 4  # user terminal gain (40 dBi)
+    B = 20e6  # Hz (100 MHz bandwidth per user)
+    N_0 = 3.98e-18  # W/Hz (noise spectral density)
+    c = 3e8  # m/s (speed of light)
+    L = (c / (4 * np.pi * f * distance)) ** 2 # free space path loss
+    x = (p * g_t * g_r * L) / (N_0 * B)
+    rate = B * np.log2(1+x)
+    return rate / 1e6 #return rate in Mbps
 
 
 def main():
@@ -31,17 +43,19 @@ def main():
 
 
 
-    systemUtility.usernumber_sweep()
+    # systemUtility.usernumber_sweep()
+    #
+    # systemUtility.transmitpower_bandwidth_lambda_sweep()
+    #
+    # systemUtility.transmitpower_usernumber_sweep()
+    #
+    # systemUtility.bandwidth_radius_lambda_sweep()
+    #
+    # systemUtility.radius_sweep()
+    #
+    # systemUtility.carrierFreq_sweep()
 
-    systemUtility.transmitpower_bandwidth_lambda_sweep()
-
-    systemUtility.transmitpower_usernumber_sweep()
-
-    systemUtility.bandwidth_radius_lambda_sweep()
-
-    systemUtility.radius_sweep()
-
-    systemUtility.carrierFreq_sweep()
+    print(calculate_rate())
 
 
 
