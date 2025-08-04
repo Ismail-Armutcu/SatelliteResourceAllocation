@@ -9,17 +9,21 @@ BEAM_RADIUS = 3.5 *100 #km # radius of beam in km
 USER_SWITCHING_THRESHOLD_HEAVY = 8
 USER_SWITCHING_THRESHOLD_LIGHT= 2
 TOTAL_BEAM_NUMBER = 4
-SATELLITE_ALTITUDE = 2000 #km
-CARRIER_FREQUENCY = 20 * 10 ** 9 # carrier frequency 20 Ghz
-BANDWIDTH = 20 * 10 ** 6 #bandwidth 20 Mhz
+SATELLITE_ALTITUDE = 600 #km
+CARRIER_FREQUENCY = 12e9 # carrier frequency 12 Ghz
+BANDWIDTH = 20e6 #bandwidth 20 Mhz
+RX_ANTENNA_GAIN = 35 # dBi
+TX_ANTENNA_GAIN = 45 # dBi
+TRANSMIT_POWER = 40  # Watts
 USER_WEIGHT_THRESHOLD = 5
 SUBCHANNEL_NUMBER = 10
-PACKET_SIZE = (1*1e3, 5*1e3) #bit
+PACKET_SIZE = (1e6, 15e6) #bit
 TIME_SLOT_DURATION = 10 # ms
 RATE_SCALING_FACTOR = 1
-TRANSMIT_POWER = 40  # Watts
+
+
 LAMBDA_1 = 0.5  # Weight for reward in utility calculation
-RNG_SEED = 42
+RNG_SEED = 353406
 LOG_LEVEL = 0 # 0: no logs, 1: basic logs, 2: detailed logs
 PLOT_LEVEL = 0  # 0: disable plots, 1: enable plots
 

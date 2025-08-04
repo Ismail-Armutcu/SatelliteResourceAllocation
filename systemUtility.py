@@ -111,8 +111,8 @@ def format_allocation_log(allocation_log):
     return result
 
 
-def calculate_utility(userNumber=100, transmitPower=40, lambda_1=0.6, bandwidth=20e6, rngSeed=42,
-                      beamRadius=3.5 * 100) -> tuple[float, float]:
+def calculate_utility(userNumber=utils.USER_NUMBER, transmitPower=utils.TRANSMIT_POWER, lambda_1=0.6, bandwidth=utils.BANDWIDTH, rngSeed=utils.RNG_SEED,
+                      beamRadius=utils.BEAM_RADIUS) -> tuple[float, float]:
     # Main logic starts here
     utils.USER_NUMBER = userNumber
     utils.TRANSMIT_POWER = transmitPower
@@ -175,10 +175,11 @@ def calculate_utility(userNumber=100, transmitPower=40, lambda_1=0.6, bandwidth=
 def usernumber_sweep():
     userNumberSweepListUtility = []
     userNumberSweepListAllocEfficiency = []
+    x = range(20, 80, 5)
     for lambda_1 in np.arange(0.5, 0.79, 0.1):
         userNumberSweepList_lambda_utility = []
         userNumberSweepList_lambda_alloc_efficiency = []
-        for userNumber in range(20, 80, 5):
+        for userNumber in x:
             utility, allocation_efficiency = calculate_utility(userNumber=userNumber, lambda_1=float(lambda_1))
             userNumberSweepList_lambda_alloc_efficiency.append(allocation_efficiency)
             userNumberSweepList_lambda_utility.append(utility)
@@ -192,7 +193,7 @@ def usernumber_sweep():
         print(i)
     # Plot user number sweep results
     plt.figure(figsize=(10, 6))
-    x = range(20, 80, 5)
+
     lambda_values = np.arange(0.5, 0.79, 0.1)
     for idx, data in enumerate(userNumberSweepListUtility):
         plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')
@@ -204,7 +205,7 @@ def usernumber_sweep():
     plt.show()
 
     plt.figure(figsize=(10, 6))
-    x = range(20, 80, 5)
+
     lambda_values = np.arange(0.5, 0.79, 0.1)
     for idx, data in enumerate(userNumberSweepListAllocEfficiency):
         plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')

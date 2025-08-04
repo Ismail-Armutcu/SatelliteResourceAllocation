@@ -97,14 +97,14 @@ def calculate_rate(vau, t, f = utils.CARRIER_FREQUENCY):
     satellite_x = satellite_y = (utils.USER_AREA / utils.TOTAL_SLOTS) * t
     # satellite is moving from [0,0] to [max_x,max_y] in a diagonal line.
     distance = np.sqrt((vau.x - satellite_x) ** 2 + (vau.y - satellite_y) ** 2 + utils.SATELLITE_ALTITUDE ** 2) * 1000
-    g_t = 1000  # satellite transmit antenna gain in linear scale assuming 0.4 degree beamwidth
-    g_r = 31.62  # user receiver antenna gain in linear scale
+    g_t = 10 ** (utils.TX_ANTENNA_GAIN / 10)  # satellite antenna gain (45 dBi)
+    g_r = 10 ** (utils.RX_ANTENNA_GAIN / 10)  # user terminal gain (35 dBi)
     p = utils.TRANSMIT_POWER  # satellite transmit power
-    N_0 = 3.98 * 10 ** -18 # Noise spectral density -174 dbw/Hz
-    c = 3 * 10 ** 8 # speed of light
+    N_0 = 10 ** (-174/10)  # W/Hz (noise spectral density)
+    c = 3e8  # m/s (speed of light)
     L = (c / (4 * np.pi * f * distance)) ** 2 # free space path loss
     x = (p * g_t * g_r * L) / (N_0 * utils.BANDWIDTH)
-    rate = utils.BANDWIDTH * np.log10(1+x)
+    rate = utils.BANDWIDTH * np.log2(1+x)
     if utils.LOG_LEVEL >= 2:
         print(f"Satellite position at time {t}: ({satellite_x:.2f}, {satellite_y:.2f}), User position: ({vau.x:.2f}, {vau.y:.2f}), Distance: {distance:.2f} m, Rate: {rate * utils.RATE_SCALING_FACTOR /1e6:.2f} Mbps")
     return rate * utils.RATE_SCALING_FACTOR
