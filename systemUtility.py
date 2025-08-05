@@ -5,425 +5,724 @@ import timeSlotAllocation
 import timeFrequencyAllocation
 import userGrouping
 
+
+
+
+def calculate__approx_rate():
+   f = utils.CARRIER_FREQUENCY  # Hz (Ku-band downlink)
+   distance = utils.SATELLITE_ALTITUDE * 1000  # meters (LEO orbit)
+   p = utils.TRANSMIT_POWER  # Watts (per beam transmit power)
+   g_t = 10 ** (utils.TX_ANTENNA_GAIN/10)  # satellite antenna gain (40 dBi)
+   g_r = 10 ** (utils.RX_ANTENNA_GAIN/10)  # user terminal gain (40 dBi)
+   B = utils.BANDWIDTH  # Hz (100 MHz bandwidth per user)
+   N_0 = 10 ** (-174/10)  # W/Hz (noise spectral density)
+   c = 3e8  # m/s (speed of light)
+   L = (c / (4 * np.pi * f * distance)) ** 2 # free space path loss
+   x = (p * g_t * g_r * L) / (N_0 * B)
+   rate = B * np.log2(1+x)
+   return rate / 1e6 #return rate in Mbps
+
+
 def compute_user_utilities(users, allocation_log, lambda_1=utils.LAMBDA_1, lambda_2=0.3):
-    """
-    Calculate system utility based on successful transmissions and energy consumption.
+   """
+   Calculate system utility based on successful transmissions and energy consumption.
 
-    :param users: list of User objects
-    :param allocation_log: list of tuples (user_id, time_slot, beam, subchannel, rate_kbps)
-    :param lambda_1: Weight for reward
-    :param lambda_2: Weight for energy
-    :param slot_duration: Time duration per slot in seconds
-    :return: system_utility, detailed_user_utilities
-    """
-    user_info = {user.id: {'size': user.size, 'weight': user.weight, 'deadline': user.deadline} for user in users}
-    user_data_sent = {uid: 0 for uid in user_info}
-    user_energy = {uid: 0 for uid in user_info}
-    user_completion_time = {}
 
-    # Constants
-    power_watt = utils.TRANSMIT_POWER  # Assumed constant transmit power
+   :param users: list of User objects
+   :param allocation_log: list of tuples (user_id, time_slot, beam, subchannel, rate_kbps)
+   :param lambda_1: Weight for reward
+   :param lambda_2: Weight for energy
+   :param slot_duration: Time duration per slot in seconds
+   :return: system_utility, detailed_user_utilities
+   """
+   user_info = {user.id: {'size': user.size, 'weight': user.weight, 'deadline': user.deadline} for user in users}
+   user_data_sent = {uid: 0 for uid in user_info}
+   user_energy = {uid: 0 for uid in user_info}
+   user_completion_time = {}
 
-    for uid, t, beam, sc, rate in allocation_log:
-        if uid not in user_data_sent:
-            continue
-        sent_this_slot = rate * utils.TIME_SLOT_DURATION / 1000  # in bits
-        user_data_sent[uid] += sent_this_slot
-        user_energy[uid] += power_watt *  utils.TIME_SLOT_DURATION / 1000 # Joules
-        if user_data_sent[uid] >= user_info[uid]['size'] and uid not in user_completion_time:
-            user_completion_time[uid] = t
 
-    # Determine max/min energy used for normalization
-    energy_vals = list(user_energy.values())
-    E_max, E_min = max(energy_vals), min(energy_vals)
+   # Constants
+   power_watt = utils.TRANSMIT_POWER  # Assumed constant transmit power
 
-    user_utilities = []
-    total_utility = 0.0
-    for uid in user_info:
-        deadline = user_info[uid]['deadline']
-        size = user_info[uid]['size']
-        weight = user_info[uid]['weight']
 
-        completed = user_data_sent[uid] >= size
-        completed_in_time = completed and user_completion_time.get(uid, float('inf')) <= deadline
-        alpha_n = 1 if completed_in_time else 0
-        eta_n = weight * alpha_n
+   for uid, t, beam, sc, rate in allocation_log:
+       if uid not in user_data_sent:
+           continue
+       sent_this_slot = rate * utils.TIME_SLOT_DURATION / 1000  # in bits
+       user_data_sent[uid] += sent_this_slot
+       user_energy[uid] += power_watt *  utils.TIME_SLOT_DURATION / 1000 # Joules
+       if user_data_sent[uid] >= user_info[uid]['size'] and uid not in user_completion_time:
+           user_completion_time[uid] = t
 
-        E_n = (E_max - user_energy[uid]) / (E_max - E_min + 1e-8) if E_max > E_min else 1
-        U_n = utils.LAMBDA_1 * eta_n - lambda_2 * E_n
-        user_utilities.append((U_n,uid))
-        total_utility+=U_n
 
-    if utils.LOG_LEVEL >= 1:
-        print("\nAllocation Log:")
-        print("User ID | Time Slot | Beam | Subchannel | Rate (Mbps) | Completion Time | Deadline | Status")
-        print("-" * 80)
-    for entry in allocation_log:
-        uid, t, beam, sc, rate = entry
-        if uid not in user_info:
-            continue
+   # Determine max/min energy used for normalization
+   energy_vals = list(user_energy.values())
+   E_max, E_min = max(energy_vals), min(energy_vals)
 
-        completion_status = "Completed" if uid in user_completion_time and user_completion_time[uid] <= user_info[uid]['deadline'] else "Failed"
-        if utils.LOG_LEVEL >= 2:
-            print(f"{uid:7d} | {t:9d} | {beam:4d} | {sc:10d} | {rate:11.2f} | {user_completion_time.get(uid, 'N/A'):15} | {user_info[uid]['deadline']:8d} | {completion_status}")
 
-        # Set failed flag for users who did not complete in time
-        if completion_status == "Failed":
-            for user in users:
-                if user.id == uid:
-                    user.is_failed = True
-                    break
-    return total_utility, user_utilities
+   user_utilities = []
+   total_utility = 0.0
+   for uid in user_info:
+       deadline = user_info[uid]['deadline']
+       size = user_info[uid]['size']
+       weight = user_info[uid]['weight']
+
+
+       completed = user_data_sent[uid] >= size
+       completed_in_time = completed and user_completion_time.get(uid, float('inf')) <= deadline
+       alpha_n = 1 if completed_in_time else 0
+       eta_n = weight * alpha_n
+
+
+       E_n = (E_max - user_energy[uid]) / (E_max - E_min + 1e-8) if E_max > E_min else 1
+       U_n = utils.LAMBDA_1 * eta_n - lambda_2 * E_n
+       user_utilities.append((U_n,uid))
+       total_utility+=U_n
+
+
+   if utils.LOG_LEVEL >= 1:
+       print("\nAllocation Log:")
+       print("User ID | Time Slot | Beam | Subchannel | Rate (Mbps) | Completion Time | Deadline | Status")
+       print("-" * 80)
+   for entry in allocation_log:
+       uid, t, beam, sc, rate = entry
+       if uid not in user_info:
+           continue
+
+
+       completion_status = "Completed" if uid in user_completion_time and user_completion_time[uid] <= user_info[uid]['deadline'] else "Failed"
+       if utils.LOG_LEVEL >= 2:
+           print(f"{uid:7d} | {t:9d} | {beam:4d} | {sc:10d} | {rate:11.2f} | {user_completion_time.get(uid, 'N/A'):15} | {user_info[uid]['deadline']:8d} | {completion_status}")
+
+
+       # Set failed flag for users who did not complete in time
+       if completion_status == "Failed":
+           for user in users:
+               if user.id == uid:
+                   user.is_failed = True
+                   break
+   return total_utility, user_utilities
+
 
 def format_allocation_log(allocation_log):
-    """
-    Format and return the allocation log in a readable string format.
-
-    :param allocation_log: List of tuples containing allocation information
-    :return: Formatted string representation of the allocation log
-    """
+   """
+   Format and return the allocation log in a readable string format.
 
 
-    result = "\nResource Allocation Log:\n" + "=" * 80 + "\n"
+   :param allocation_log: List of tuples containing allocation information
+   :return: Formatted string representation of the allocation log
+   """
 
-    # Sort by beam, time slot, and subchannel
-    sorted_log = sorted(allocation_log, key=lambda x: (x[2], x[1], x[3]))
 
-    current_beam = -1
-    current_time_slot = -1
 
-    for entry in sorted_log:
-        user_id, time_slot, beam_id, subchannel_id, rate = entry
 
-        if beam_id != current_beam:
-            result += f"\nBeam {beam_id}:\n" + "-" * 80 + "\n"
-            current_beam = beam_id
-            current_time_slot = -1
+   result = "\nResource Allocation Log:\n" + "=" * 80 + "\n"
 
-        if time_slot != current_time_slot:
-            result += f"\nTime Slot {time_slot}:\n"
-            result += "User ID | Subchannel ID | Rate (Mbps)\n"
-            result += "-" * 40 + "\n"
-            current_time_slot = time_slot
 
-        result += f"{user_id:7d} | {subchannel_id:12d} | {rate:10.2f}\n"
+   # Sort by beam, time slot, and subchannel
+   sorted_log = sorted(allocation_log, key=lambda x: (x[2], x[1], x[3]))
 
-    return result
+
+   current_beam = -1
+   current_time_slot = -1
+
+
+   for entry in sorted_log:
+       user_id, time_slot, beam_id, subchannel_id, rate = entry
+
+
+       if beam_id != current_beam:
+           result += f"\nBeam {beam_id}:\n" + "-" * 80 + "\n"
+           current_beam = beam_id
+           current_time_slot = -1
+
+
+       if time_slot != current_time_slot:
+           result += f"\nTime Slot {time_slot}:\n"
+           result += "User ID | Subchannel ID | Rate (Mbps)\n"
+           result += "-" * 40 + "\n"
+           current_time_slot = time_slot
+
+
+       result += f"{user_id:7d} | {subchannel_id:12d} | {rate:10.2f}\n"
+
+
+   return result
+
+
 
 
 def calculate_utility(userNumber=utils.USER_NUMBER, transmitPower=utils.TRANSMIT_POWER, lambda_1=0.6, bandwidth=utils.BANDWIDTH, rngSeed=utils.RNG_SEED,
-                      beamRadius=utils.BEAM_RADIUS) -> tuple[float, float]:
-    # Main logic starts here
-    utils.USER_NUMBER = userNumber
-    utils.TRANSMIT_POWER = transmitPower
-    utils.LAMBDA_1 = lambda_1
-    utils.BANDWIDTH = bandwidth
-    utils.RNG_SEED = rngSeed
-    utils.BEAM_RADIUS = beamRadius
-    utils.SUBCHANNEL_NUMBER = int(bandwidth / 2e6)  # Update subchannel number based on bandwidth
-    user_groups, virtual_centers = userGrouping.group_users()
-    user_groups2 = user_groups
-    aggregate_users = timeSlotAllocation.create_aggregate_users(user_groups)
-    users = []
-    for au in aggregate_users:
-        if utils.LOG_LEVEL >= 1:
-            au.print_user()
-        users.extend(au.usr)
-    if utils.LOG_LEVEL >= 1:
-        print("#" * 80)
-        users.sort(key=lambda x: x.id)
-        for user in users:
-            user.print_user()
-        print("#" * 80)
-    au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = timeSlotAllocation.initial_user_time_slot_assignment(
-        aggregate_users)
-    au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = timeSlotAllocation.residual_time_slot_assignment(
-        aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used)
-    timeSlotAllocation.print_time_slot_assignments(time_slot_au_mapping, au_time_slot_mapping, epsilon, epsilon_used)
-    user_time_slot_beam_mapping, allocated_subchannels = timeFrequencyAllocation.initialize_timeFrequencyStructures(
-        time_slot_au_mapping)
-    timeFrequencyAllocation.allocate_subchannels(aggregate_users, user_time_slot_beam_mapping, allocated_subchannels)
-
-    timeFrequencyAllocation.print_allocation_summary(allocated_subchannels, user_time_slot_beam_mapping, users)
-    beam_sum = 0
-    for beam in range(utils.TOTAL_BEAM_NUMBER):
-        for time in range(utils.TOTAL_SLOTS):
-            for element in allocated_subchannels[beam][time]:
-                if element != -1:
-                    beam_sum += 1
-    allocation_efficiency = beam_sum / (utils.TOTAL_BEAM_NUMBER * utils.TOTAL_SLOTS * utils.SUBCHANNEL_NUMBER) * 100
-
-    total_utility, per_user_utilities = compute_user_utilities(users, timeFrequencyAllocation.allocation_log)
-    if utils.LOG_LEVEL >= 1:
-        for utility, user_id in per_user_utilities:
-            print(f"User {user_id} Utility: {utility:.2f}")
-    timeFrequencyAllocation.report_failed_users(aggregate_users)
-
-    if utils.LOG_LEVEL >= 1:
-        print(format_allocation_log(timeFrequencyAllocation.allocation_log))
-    if utils.LOG_LEVEL >= 1:
-        print("Simulation completed.")
-        print(f"Simulation Parameters: ")
-        print(f"User Number: {utils.USER_NUMBER}, Transmit Power: {utils.TRANSMIT_POWER} W, "
-              f"Lambda 1: {utils.LAMBDA_1}, Bandwidth: {utils.BANDWIDTH / 1e6} MHz, RNG Seed: {utils.RNG_SEED} beamRadius: {beamRadius} km")
-        print("System Utility:", total_utility)
-    timeFrequencyAllocation.allocation_log = [] # Clear the allocation log for next run
-
-    return total_utility, allocation_efficiency
+                     beamRadius=utils.BEAM_RADIUS, carrierFreq = utils.CARRIER_FREQUENCY) -> tuple[float, float]:
+   # Main logic starts here
+   utils.reset()
+   utils.USER_NUMBER = userNumber
+   utils.TRANSMIT_POWER = transmitPower
+   utils.LAMBDA_1 = lambda_1
+   utils.BANDWIDTH = bandwidth
+   utils.RNG_SEED = rngSeed
+   utils.BEAM_RADIUS = beamRadius
+   utils.CARRIER_FREQUENCY = carrierFreq
+   # utils.SUBCHANNEL_NUMBER = int(bandwidth / 2e6)  # Update subchannel number based on bandwidth
+   user_groups, virtual_centers = userGrouping.group_users()
+   user_groups2 = user_groups
+   aggregate_users = timeSlotAllocation.create_aggregate_users(user_groups)
+   users = []
+   for au in aggregate_users:
+       if utils.LOG_LEVEL >= 1:
+           au.print_user()
+       users.extend(au.usr)
+   if utils.LOG_LEVEL >= 1:
+       print("#" * 80)
+       users.sort(key=lambda x: x.id)
+       for user in users:
+           user.print_user()
+       print("#" * 80)
+   au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = timeSlotAllocation.initial_user_time_slot_assignment(
+       aggregate_users)
+   au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used = timeSlotAllocation.residual_time_slot_assignment(
+       aggregate_users, au_time_slot_mapping, time_slot_au_mapping, epsilon, epsilon_used)
+   timeSlotAllocation.print_time_slot_assignments(time_slot_au_mapping, au_time_slot_mapping, epsilon, epsilon_used)
+   user_time_slot_beam_mapping, allocated_subchannels = timeFrequencyAllocation.initialize_timeFrequencyStructures(
+       time_slot_au_mapping)
+   timeFrequencyAllocation.allocate_subchannels(aggregate_users, user_time_slot_beam_mapping, allocated_subchannels)
 
 
-def usernumber_sweep():
-    userNumberSweepListUtility = []
-    userNumberSweepListAllocEfficiency = []
-    x = range(20, 80, 5)
-    for lambda_1 in np.arange(0.5, 0.79, 0.1):
-        userNumberSweepList_lambda_utility = []
-        userNumberSweepList_lambda_alloc_efficiency = []
-        for userNumber in x:
-            utility, allocation_efficiency = calculate_utility(userNumber=userNumber, lambda_1=float(lambda_1))
-            userNumberSweepList_lambda_alloc_efficiency.append(allocation_efficiency)
-            userNumberSweepList_lambda_utility.append(utility)
-        userNumberSweepListAllocEfficiency.append(userNumberSweepList_lambda_alloc_efficiency)
-        userNumberSweepListUtility.append(userNumberSweepList_lambda_utility)
-    print("User Number Sweep Results:")
-    for i in userNumberSweepListUtility:
-        print(i)
-    print("User Number Sweep Results (Allocation Efficiency):")
-    for i in userNumberSweepListAllocEfficiency:
-        print(i)
-    # Plot user number sweep results
-    plt.figure(figsize=(10, 6))
+   timeFrequencyAllocation.print_allocation_summary(allocated_subchannels, user_time_slot_beam_mapping, users)
+   beam_sum = 0
+   for beam in range(utils.TOTAL_BEAM_NUMBER):
+       for time in range(utils.TOTAL_SLOTS):
+           for element in allocated_subchannels[beam][time]:
+               if element != -1:
+                   beam_sum += 1
+   allocation_efficiency = beam_sum / (utils.TOTAL_BEAM_NUMBER * utils.TOTAL_SLOTS * utils.SUBCHANNEL_NUMBER) * 100
 
-    lambda_values = np.arange(0.5, 0.79, 0.1)
-    for idx, data in enumerate(userNumberSweepListUtility):
-        plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')
-    plt.xlabel('Number of Users')
-    plt.ylabel('Utility')
-    plt.title('System Utility Function vs Number of Users')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
 
-    plt.figure(figsize=(10, 6))
+   total_utility, per_user_utilities = compute_user_utilities(users, timeFrequencyAllocation.allocation_log)
+   if utils.LOG_LEVEL >= 1:
+       for utility, user_id in per_user_utilities:
+           print(f"User {user_id} Utility: {utility:.2f}")
+   timeFrequencyAllocation.report_failed_users(aggregate_users)
 
-    lambda_values = np.arange(0.5, 0.79, 0.1)
-    for idx, data in enumerate(userNumberSweepListAllocEfficiency):
-        plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')
-        break
-    plt.xlabel('Number of Users')
-    plt.ylabel('Allocation Efficiency (%)')
-    plt.title('Allocation Efficiency vs Number of Users')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+
+   if utils.LOG_LEVEL >= 1:
+       print(format_allocation_log(timeFrequencyAllocation.allocation_log))
+   if utils.LOG_LEVEL >= 1:
+       print("Simulation completed.")
+       print(f"Simulation Parameters: ")
+       print(f"User Number: {utils.USER_NUMBER}, Transmit Power: {utils.TRANSMIT_POWER} W, "
+             f"Lambda 1: {utils.LAMBDA_1}, Bandwidth: {utils.BANDWIDTH / 1e6} MHz, RNG Seed: {utils.RNG_SEED} beamRadius: {beamRadius} km")
+       print("System Utility:", total_utility)
+   timeFrequencyAllocation.allocation_log = [] # Clear the allocation log for next run
+
+
+   return total_utility, allocation_efficiency
+
+
+
+
+def usernumber_lambda_sweep():
+   userNumberSweepListUtility = []
+   userNumberSweepListAllocEfficiency = []
+   x = range(20, 80, 5)
+   for lambda_1 in np.arange(0.5, 0.79, 0.1):
+       userNumberSweepList_lambda_utility = []
+       userNumberSweepList_lambda_alloc_efficiency = []
+       for userNumber in x:
+           utility, allocation_efficiency = calculate_utility(userNumber=userNumber, lambda_1=float(lambda_1))
+           userNumberSweepList_lambda_alloc_efficiency.append(allocation_efficiency)
+           userNumberSweepList_lambda_utility.append(utility)
+       userNumberSweepListAllocEfficiency.append(userNumberSweepList_lambda_alloc_efficiency)
+       userNumberSweepListUtility.append(userNumberSweepList_lambda_utility)
+   print("User Number Sweep Results:")
+   for i in userNumberSweepListUtility:
+       print(i)
+   print("User Number Sweep Results (Allocation Efficiency):")
+   for i in userNumberSweepListAllocEfficiency:
+       print(i)
+   # Plot user number sweep results
+   plt.figure(figsize=(10, 6))
+
+
+   lambda_values = np.arange(0.5, 0.79, 0.1)
+   for idx, data in enumerate(userNumberSweepListUtility):
+       plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')
+   plt.xlabel('Number of Users')
+   plt.ylabel('Utility')
+   plt.title('System Utility Function vs Number of Users')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
+
+
+   plt.figure(figsize=(10, 6))
+
+
+   lambda_values = np.arange(0.5, 0.79, 0.1)
+   for idx, data in enumerate(userNumberSweepListAllocEfficiency):
+       plt.plot(x, data, marker='o', label=f'λ = {lambda_values[idx]:.1f}')
+       break
+   plt.xlabel('Number of Users')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency vs Number of Users')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
+
+
+
 
 
 
 def transmitpower_bandwidth_lambda_sweep():
-    transmitPower_bandwidth_lambda_SweepList_Utility = []
-    transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency = []
-    transmit_power_range = np.arange(20, 42, 2)
-    for lambda_1 in np.arange(0.6, 0.79, 0.1):
-        for bandwidth in np.arange(20e6, 40e6, 10e6):
-            transmitPowerSweepList_temp_utility = []
-            transmitPowerSweepList_temp_alloc_efficiency = []
-            for transmitPower in transmit_power_range:
-                utility, allocation_efficiency = calculate_utility(transmitPower=transmitPower, lambda_1=lambda_1, bandwidth=bandwidth)
-                transmitPowerSweepList_temp_utility.append(utility)
-                transmitPowerSweepList_temp_alloc_efficiency.append(allocation_efficiency)
-            transmitPower_bandwidth_lambda_SweepList_Utility.append(transmitPowerSweepList_temp_utility)
-            transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency.append(transmitPowerSweepList_temp_alloc_efficiency)
-    print("transmitPower_bandwidth_lambda Sweep Results:")
-    for i in transmitPower_bandwidth_lambda_SweepList_Utility:
-        print(i)
-    # Plot utility vs transmit power for specified combinations
+   transmitPower_bandwidth_lambda_SweepList_Utility = []
+   transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency = []
+   transmit_power_range = np.arange(20, 42, 2)
+   for lambda_1 in np.arange(0.6, 0.79, 0.1):
+       for bandwidth in np.arange(20e6, 40e6, 10e6):
+           transmitPowerSweepList_temp_utility = []
+           transmitPowerSweepList_temp_alloc_efficiency = []
+           for transmitPower in transmit_power_range:
+               utility, allocation_efficiency = calculate_utility(transmitPower=transmitPower, lambda_1=lambda_1, bandwidth=bandwidth)
+               transmitPowerSweepList_temp_utility.append(utility)
+               transmitPowerSweepList_temp_alloc_efficiency.append(allocation_efficiency)
+           transmitPower_bandwidth_lambda_SweepList_Utility.append(transmitPowerSweepList_temp_utility)
+           transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency.append(transmitPowerSweepList_temp_alloc_efficiency)
+   print("transmitPower_bandwidth_lambda Sweep Results:")
+   for i in transmitPower_bandwidth_lambda_SweepList_Utility:
+       print(i)
+   # Plot utility vs transmit power for specified combinations
 
-    combinations = [
-        ('B=20MHz, λ=0.6'),
-        ('B=30MHz, λ=0.6'),
-        ('B=20MHz, λ=0.7'),
-        ('B=30MHz, λ=0.7')
-    ]
-    x = np.arange(20, 42, 2)
-    plt.figure(figsize=(10, 6))
-    for idx, result in enumerate(transmitPower_bandwidth_lambda_SweepList_Utility):
-        plt.plot(x, result, marker='o', label=combinations[idx])
-    plt.xlabel('Transmit Power (W)')
-    plt.ylabel('System Utility')
-    plt.title('System Utility vs Transmit Power for Different Bandwidth and λ Values')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
 
-    plt.figure(figsize=(10, 6))
-    for idx, result in enumerate(transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency):
-        plt.plot(x, result, marker='o', label=combinations[idx])
-        break
-    plt.xlabel('Transmit Power (W)')
-    plt.ylabel('Allocation Efficiency (%)')
-    plt.title('Allocation Efficiency (%) vs Transmit Power for Different Bandwidth and λ Values')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+   combinations = [
+       ('B=20MHz, λ=0.6'),
+       ('B=30MHz, λ=0.6'),
+       ('B=20MHz, λ=0.7'),
+       ('B=30MHz, λ=0.7')
+   ]
+   x = np.arange(20, 42, 2)
+   plt.figure(figsize=(10, 6))
+   for idx, result in enumerate(transmitPower_bandwidth_lambda_SweepList_Utility):
+       plt.plot(x, result, marker='o', label=combinations[idx])
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('System Utility')
+   plt.title('System Utility vs Transmit Power for Different Bandwidth and λ Values')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
+
+
+   plt.figure(figsize=(10, 6))
+   for idx, result in enumerate(transmitPower_bandwidth_lambda_SweepList_Alloc_Efficiency):
+       plt.plot(x, result, marker='o', label=combinations[idx])
+       break
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency (%) vs Transmit Power for Different Bandwidth and λ Values')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
+
+
 
 
 def transmitpower_usernumber_sweep():
-    transmitPower_UserNumber_SweepList_utility = []
-    transmitPower_UserNumber_SweepList_alloc_efficiency = []
-    for userNumber in np.arange(40, 70, 10):
-        transmitPowerSweepList_temp_utility = []
-        transmitPowerSweepList_temp_alloc_efficiency = []
-        for transmitPower in range(20, 42, 2):
-            utility, allocation_efficiency = calculate_utility(transmitPower=transmitPower, userNumber=userNumber)
-            transmitPowerSweepList_temp_utility.append(utility)
-            transmitPowerSweepList_temp_alloc_efficiency.append(allocation_efficiency)
-        transmitPower_UserNumber_SweepList_utility.append(transmitPowerSweepList_temp_utility)
-        transmitPower_UserNumber_SweepList_alloc_efficiency.append(transmitPowerSweepList_temp_alloc_efficiency)
-    print("transmitPower_userNumber Sweep Results:")
-    for i in transmitPower_UserNumber_SweepList_utility:
-        print(i)
-
-    combinations = [
-        ('N = 40'),
-        ('N = 50'),
-        ('N = 60'),
-        ('N = 70')
-    ]
-    x = np.arange(20, 42, 2)
-    plt.figure(figsize=(10, 6))
-    for idx, result in enumerate(transmitPower_UserNumber_SweepList_utility):
-        plt.plot(x, result, marker='o', label=combinations[idx])
-    plt.xlabel('Transmit Power (W)')
-    plt.ylabel('System Utility')
-    plt.title('System Utility vs Transmit Power for Different User Numbers and λ1 = 0.6')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+   transmitPower_UserNumber_SweepList_utility = []
+   transmitPower_UserNumber_SweepList_alloc_efficiency = []
+   for userNumber in np.arange(40, 70, 10):
+       transmitPowerSweepList_temp_utility = []
+       transmitPowerSweepList_temp_alloc_efficiency = []
+       for transmitPower in range(20, 42, 2):
+           utility, allocation_efficiency = calculate_utility(transmitPower=transmitPower, userNumber=userNumber)
+           transmitPowerSweepList_temp_utility.append(utility)
+           transmitPowerSweepList_temp_alloc_efficiency.append(allocation_efficiency)
+       transmitPower_UserNumber_SweepList_utility.append(transmitPowerSweepList_temp_utility)
+       transmitPower_UserNumber_SweepList_alloc_efficiency.append(transmitPowerSweepList_temp_alloc_efficiency)
+   print("transmitPower_userNumber Sweep Results:")
+   for i in transmitPower_UserNumber_SweepList_utility:
+       print(i)
 
 
-    plt.figure(figsize=(10, 6))
-    for idx, result in enumerate(transmitPower_UserNumber_SweepList_alloc_efficiency):
-        plt.plot(x, result, marker='o', label=combinations[idx])
-    plt.xlabel('Transmit Power (W)')
-    plt.ylabel('Allocation Efficiency (%)')
-    plt.title('Allocation Efficiency (%) vs Transmit Power for Different User Numbers and λ1 = 0.6')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+   combinations = [
+       ('N = 40'),
+       ('N = 50'),
+       ('N = 60'),
+       ('N = 70')
+   ]
+   x = np.arange(20, 42, 2)
+   plt.figure(figsize=(10, 6))
+   for idx, result in enumerate(transmitPower_UserNumber_SweepList_utility):
+       plt.plot(x, result, marker='o', label=combinations[idx])
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('System Utility')
+   plt.title('System Utility vs Transmit Power for Different User Numbers and λ1 = 0.6')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
+
+
+
+
+   plt.figure(figsize=(10, 6))
+   for idx, result in enumerate(transmitPower_UserNumber_SweepList_alloc_efficiency):
+       plt.plot(x, result, marker='o', label=combinations[idx])
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency (%) vs Transmit Power for Different User Numbers and λ1 = 0.6')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
+
+
 
 
 def bandwidth_radius_lambda_sweep():
-    bandwidth_radius_lamdba_SweepList_utility = []
-    bandwidth_radius_lamdba_SweepList_alloc_efficiency = []
-    for radius in np.arange(150, 170, 15):
-        for lambda_1 in np.arange(0.5, 0.7, 0.1):
-            bandwidth_radius_lamdba_SweepList_Temp_utility = []
-            bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency = []
-            for bandwidth in np.arange(15e6, 40e6, 5e6):
-                utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=bandwidth, lambda_1=lambda_1)
-                bandwidth_radius_lamdba_SweepList_Temp_utility.append(utility)
-                bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency.append(allocation_efficiency)
-            bandwidth_radius_lamdba_SweepList_utility.append(bandwidth_radius_lamdba_SweepList_Temp_utility)
-            bandwidth_radius_lamdba_SweepList_alloc_efficiency.append(bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency)
-    print("bandwidth_radius_lambda Sweep Results:")
-    for i in bandwidth_radius_lamdba_SweepList_utility:
-        print(i)
+   bandwidth_radius_lamdba_SweepList_utility = []
+   bandwidth_radius_lamdba_SweepList_alloc_efficiency = []
+   for radius in np.arange(150, 170, 15):
+       for lambda_1 in np.arange(0.5, 0.7, 0.1):
+           bandwidth_radius_lamdba_SweepList_Temp_utility = []
+           bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency = []
+           for bandwidth in np.arange(15e6, 40e6, 5e6):
+               utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=bandwidth, lambda_1=lambda_1)
+               bandwidth_radius_lamdba_SweepList_Temp_utility.append(utility)
+               bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency.append(allocation_efficiency)
+           bandwidth_radius_lamdba_SweepList_utility.append(bandwidth_radius_lamdba_SweepList_Temp_utility)
+           bandwidth_radius_lamdba_SweepList_alloc_efficiency.append(bandwidth_radius_lamdba_SweepList_Temp_alloc_efficiency)
+   print("bandwidth_radius_lambda Sweep Results:")
+   for i in bandwidth_radius_lamdba_SweepList_utility:
+       print(i)
 
-    combinations = [
-        ('r=150km, λ=0.5'),
-        ('r=150km, λ=0.6'),
-        ('r=165km, λ=0.5'),
-        ('r=165km, λ=0.6')
-    ]
-    x = np.arange(15, 40, 5)
 
-    plt.figure(figsize=(10, 6))
-    for idx, result in enumerate(bandwidth_radius_lamdba_SweepList_utility):
-        plt.plot(x, result, marker='o', label=combinations[idx])
-    plt.xlabel('Bandwidth (B) Mhz')
-    plt.ylabel('System Utility')
-    plt.title('System Utility vs Bandwidth')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+   combinations = [
+       ('r=150km, λ=0.5'),
+       ('r=150km, λ=0.6'),
+       ('r=165km, λ=0.5'),
+       ('r=165km, λ=0.6')
+   ]
+   x = np.arange(15, 40, 5)
 
-    plt.figure(figsize=(10, 6))
-    for idx, result in enumerate(bandwidth_radius_lamdba_SweepList_alloc_efficiency):
-        plt.plot(x, result, marker='o', label=combinations[idx])
-    plt.xlabel('Bandwidth (B) Mhz')
-    plt.ylabel('Allocation Efficiency (%)')
-    plt.title('Allocation Efficiency (%) vs Bandwidth')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
 
-def radius_sweep():
-    radius_SweepList_alloc_efficiency = []
-    radius_SweepList_utility = []
-    for radius in np.arange(100, 800, 10):
-        utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=20e6, lambda_1=0.6, userNumber=300)
-        radius_SweepList_alloc_efficiency.append(allocation_efficiency)
-        radius_SweepList_utility.append(utility)
-    print("bandwidth_radius_lambda Sweep Results:")
-    for i in radius_SweepList_alloc_efficiency:
-        print(i)
+   plt.figure(figsize=(10, 6))
+   for idx, result in enumerate(bandwidth_radius_lamdba_SweepList_utility):
+       plt.plot(x, result, marker='o', label=combinations[idx])
+   plt.xlabel('Bandwidth (B) Mhz')
+   plt.ylabel('System Utility')
+   plt.title('System Utility vs Bandwidth')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
 
-    x = np.arange(100, 800, 10)
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(x, radius_SweepList_utility, marker='o')
-    plt.xlabel('Beam Radius (km)')
-    plt.ylabel('System Utility')
-    plt.title('System Utility vs Beam Radius')
-    plt.grid(True)
-    plt.show()
+   plt.figure(figsize=(10, 6))
+   for idx, result in enumerate(bandwidth_radius_lamdba_SweepList_alloc_efficiency):
+       plt.plot(x, result, marker='o', label=combinations[idx])
+   plt.xlabel('Bandwidth (B) Mhz')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency (%) vs Bandwidth')
+   plt.grid(True)
+   plt.legend()
+   plt.show()
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(x, radius_SweepList_alloc_efficiency, marker='o')
-    plt.xlabel('Beam Radius (km)')
-    plt.ylabel('Allocation Efficiency (%)')
-    plt.title('Allocation Efficiency (%) vs Beam Radius')
-    plt.grid(True)
-    plt.show()
+
+def radius_vs_utility(min=100, max=800, step=50):
+   radius_SweepList_alloc_efficiency = []
+   radius_SweepList_utility = []
+   radius_range = range(min,max,step)
+   for radius in radius_range:
+       utility, allocation_efficiency = calculate_utility(beamRadius=radius, bandwidth=20e6, lambda_1=0.6, userNumber=300)
+       radius_SweepList_alloc_efficiency.append(allocation_efficiency)
+       radius_SweepList_utility.append(utility)
+   print("bandwidth_radius_lambda Sweep Results:")
+   for i in radius_SweepList_alloc_efficiency:
+       print(i)
 
 
 
-def carrierFreq_sweep():
-    carrierFreq_SweepList_Utility = []
-    carrierFreq_SweepList_Alloc_Efficiency = []
-    carrierFreq_range = np.arange(20 * 10**9, 50 * 10**9, 10**9)
-    for carrierFreq in carrierFreq_range:
-        utils.CARRIER_FREQUENCY = carrierFreq
-        utility, allocation_efficiency = calculate_utility()
-        carrierFreq_SweepList_Utility.append(utility)
-        carrierFreq_SweepList_Alloc_Efficiency.append(allocation_efficiency)
-
-    print("transmitPower_bandwidth_lambda Sweep Results:")
-    for i in carrierFreq_SweepList_Utility:
-        print(i)
-    # Plot utility vs transmit power for specified combinations
-
-    combinations = [
-        ('B=20MHz, λ=0.6'),
-        ('B=30MHz, λ=0.6'),
-        ('B=20MHz, λ=0.7'),
-        ('B=30MHz, λ=0.7')
-    ]
-    x = np.arange(20, 42, 2)
-    plt.figure(figsize=(10, 6))
-
-    plt.plot(carrierFreq_range, carrierFreq_SweepList_Utility, marker='o')
-    plt.xlabel('Carrier Frequency (Hz)')
-    plt.ylabel('System Utility')
-    plt.title('System Utility vs Carrier Frequency (Hz)')
-    plt.grid(True)
-    plt.show()
 
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(carrierFreq_range, carrierFreq_SweepList_Alloc_Efficiency, marker='o')
-    plt.xlabel('Carrier Frequency (Hz)')
-    plt.ylabel('Allocation Efficiency (%)')
-    plt.title('Allocation Efficiency (%) vs Carrier Frequency (Hz)')
-    plt.grid(True)
-    plt.show()
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(radius_range, radius_SweepList_utility, marker='o')
+   plt.xlabel('Beam Radius (km)')
+   plt.ylabel('System Utility')
+   plt.title('System Utility vs Beam Radius')
+   plt.grid(True)
+   plt.show()
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(radius_range, radius_SweepList_alloc_efficiency, marker='o')
+   plt.xlabel('Beam Radius (km)')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency (%) vs Beam Radius')
+   plt.grid(True)
+   plt.show()
+
+
+
+
+
+
+def carrierFreq_vs_utility(min = 10, max = 50, step = 2):
+   carrierFreq_SweepList_Utility = []
+   carrierFreq_SweepList_Alloc_Efficiency = []
+   carrierFreq_range = range(min,max,step)
+
+
+   for carrierFreq in carrierFreq_range:
+       utility, allocation_efficiency = calculate_utility(carrierFreq = carrierFreq * 1e9)
+       carrierFreq_SweepList_Utility.append(utility)
+       carrierFreq_SweepList_Alloc_Efficiency.append(allocation_efficiency)
+
+
+   print("transmitPower_bandwidth_lambda Sweep Results:")
+   for i in carrierFreq_SweepList_Utility:
+       print(i)
+   # Plot utility vs transmit power for specified combinations
+
+
+   combinations = [
+       ('B=20MHz, λ=0.6'),
+       ('B=30MHz, λ=0.6'),
+       ('B=20MHz, λ=0.7'),
+       ('B=30MHz, λ=0.7')
+   ]
+
+
+   plt.figure(figsize=(10, 6))
+
+
+   plt.plot(carrierFreq_range, carrierFreq_SweepList_Utility, marker='o')
+   plt.xlabel('Carrier Frequency (GHz)')
+   plt.ylabel('System Utility')
+   plt.title('System Utility vs Carrier Frequency (GHz)')
+   plt.grid(True)
+   plt.show()
+
+
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(carrierFreq_range, carrierFreq_SweepList_Alloc_Efficiency, marker='o')
+   plt.xlabel('Carrier Frequency (GHz)')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency (%) vs Carrier Frequency (GHz)')
+   plt.grid(True)
+   plt.show()
+
+
+
+
+def usernumber_vs_utility(min=20, max = 100, step=10):
+   userNumberSweepListUtility = []
+   userNumberSweepListAllocEfficiency = []
+   x = range(min, max, step)
+   for userNumber in x:
+       utility, allocation_efficiency = calculate_utility(userNumber=userNumber)
+       userNumberSweepListAllocEfficiency.append(allocation_efficiency)
+       userNumberSweepListUtility.append(utility)
+
+
+   # Plot user number  results
+   plt.figure(figsize=(10, 6))
+
+
+
+
+   plt.plot(x, userNumberSweepListUtility, marker='o')
+   plt.xlabel('Number of Users')
+   plt.ylabel('Utility')
+   plt.title('System Utility Function vs Number of Users')
+   plt.grid(True)
+   plt.show()
+
+
+   plt.figure(figsize=(10, 6))
+
+
+
+
+   plt.plot(x, userNumberSweepListAllocEfficiency, marker='o')
+   plt.xlabel('Number of Users')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency vs Number of Users')
+   plt.grid(True)
+   plt.show()
+
+
+
+
+def transmitpower_vs_utility(min=20, max = 80, step=2):
+   transmitpowerSweepListUtility = []
+   transmitpowerSweepListAllocEfficiency = []
+   x = range(min, max, step)
+   for transmitpower in x:
+       utility, allocation_efficiency = calculate_utility(transmitPower=transmitpower, userNumber=200)
+       transmitpowerSweepListAllocEfficiency.append(allocation_efficiency)
+       transmitpowerSweepListUtility.append(utility)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, transmitpowerSweepListUtility, marker='o')
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('Utility')
+   plt.title('System Utility Function vs Transmit Power (W)')
+   plt.grid(True)
+   plt.show()
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, transmitpowerSweepListAllocEfficiency, marker='o')
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency vs Transmit Power (W)')
+   plt.grid(True)
+   plt.show()
+
+
+
+
+def bandwidth_vs_utility(min=20, max = 240, step=10):
+   utils.reset()
+   bandwidthSweepListUtility = []
+   bandwidthSweepListAllocEfficiency = []
+   x = range(min, max, step)
+   for bandwidth in x:
+       utility, allocation_efficiency = calculate_utility(bandwidth=bandwidth*1e6)
+       bandwidthSweepListAllocEfficiency.append(allocation_efficiency)
+       bandwidthSweepListUtility.append(utility)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, bandwidthSweepListUtility, marker='o')
+   plt.xlabel('Bandwidth (MHz)')
+   plt.ylabel('Utility')
+   plt.title('System Utility Function vs Bandwidth (MHz)')
+   plt.grid(True)
+   plt.show()
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, bandwidthSweepListAllocEfficiency, marker='o')
+   plt.xlabel('Bandwidth (MHz)')
+   plt.ylabel('Allocation Efficiency (%)')
+   plt.title('Allocation Efficiency vs Bandwidth (MHz)')
+   plt.grid(True)
+   plt.show()
+
+
+def bandwidth_vs_rate(min = 10, max = 60, step = 5):
+   utils.reset()
+   rates=[]
+   x = range(min,max,step)
+   for bandwidth in x:
+       utils.BANDWIDTH = bandwidth*1e6
+       rate = calculate__approx_rate()
+       rates.append(rate)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, rates, marker='o')
+   plt.xlabel('Bandwidth (MHz)')
+   plt.ylabel('Rate (Mbps)')
+   plt.title('Rate (Mbps) vs Bandwidth (MHz)')
+   plt.grid(True)
+   plt.show()
+
+
+def transmitpower_vs_rate(min = 10, max = 60, step = 5):
+   utils.reset()
+   rates=[]
+   x = range(min,max,step)
+   for transmitpower in x:
+       utils.TRANSMIT_POWER = transmitpower
+       rate = calculate__approx_rate()
+       rates.append(rate)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, rates, marker='o')
+   plt.xlabel('Transmit Power (W)')
+   plt.ylabel('Rate (Mbps)')
+   plt.title('Rate (Mbps) vs Transmit Power (W)')
+   plt.grid(True)
+   plt.show()
+
+
+def tx_antenna_gains_vs_rate(min = 15, max = 60, step = 5):
+   utils.reset()
+   rates=[]
+   x = range(min,max,step)
+   for tx in x:
+       utils.TX_ANTENNA_GAIN = tx
+       rate = calculate__approx_rate()
+       rates.append(rate)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, rates, marker='o')
+   plt.xlabel('TX Antenna Gain (dBi)')
+   plt.ylabel('Rate (Mbps)')
+   plt.title('Rate (Mbps) vs TX Antenna Gain (dBi)')
+   plt.grid(True)
+   plt.show()
+
+
+def rx_antenna_gains_vs_rate(min = 15, max = 60, step = 5):
+   utils.reset()
+   rates=[]
+   x = range(min,max,step)
+   for rx in x:
+       utils.RX_ANTENNA_GAIN = rx
+       rate = calculate__approx_rate()
+       rates.append(rate)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, rates, marker='o')
+   plt.xlabel('RX Antenna Gain (dBi)')
+   plt.ylabel('Rate (Mbps)')
+   plt.title('Rate (Mbps) vs RX Antenna Gain (dBi)')
+   plt.grid(True)
+   plt.show()
+
+
+
+
+def sat_altitude_vs_rate(min = 500, max = 2000, step = 50):
+   utils.reset()
+   rates=[]
+   x = range(min,max,step)
+   for altitude in x:
+       utils.SATELLITE_ALTITUDE = altitude
+       rate = calculate__approx_rate()
+       rates.append(rate)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, rates, marker='o')
+   plt.xlabel('Satellite Altitude (km)')
+   plt.ylabel('Rate (Mbps)')
+   plt.title('Rate (Mbps) vs Satellite Altitude (km)')
+   plt.grid(True)
+   plt.show()
+
+
+def carrier_freq_vs_rate(min = 10, max = 50, step = 2):
+   utils.reset()
+   rates=[]
+   x = range(min,max,step)
+   for carrierFreq in x:
+       utils.CARRIER_FREQUENCY = carrierFreq*1e9
+       rate = calculate__approx_rate()
+       rates.append(rate)
+
+
+   plt.figure(figsize=(10, 6))
+   plt.plot(x, rates, marker='o')
+   plt.xlabel('Carrier Frequency (GHz)')
+   plt.ylabel('Rate (Mbps)')
+   plt.title('Rate (Mbps) vs Carrier Frequency (GHz)')
+   plt.grid(True)
+   plt.show()
