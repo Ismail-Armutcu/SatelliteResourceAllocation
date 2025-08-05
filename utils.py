@@ -26,14 +26,6 @@ SUBCHANNEL_NUMBER = 10
 PACKET_SIZE = (1e6, 15e6) #bit
 TIME_SLOT_DURATION = 10 # ms
 RATE_SCALING_FACTOR = 1
-
-
-
-
-
-
-
-
 LAMBDA_1 = 0.5  # Weight for reward in utility calculation
 RNG_SEED = 340635
 LOG_LEVEL = 0 # 0: no logs, 1: basic logs, 2: detailed logs

@@ -6,16 +6,6 @@ import timeFrequencyAllocation
 import systemUtility
 
 
-
-
-
-
-
-
-
-
-
-
 def main():
    """
    Main function to orchestrate the simulation process for user grouping, time slot allocation,
@@ -43,13 +33,13 @@ def main():
 
 
 
-   # systemUtility.usernumber_lambda_sweep()
-   #
-   # systemUtility.transmitpower_bandwidth_lambda_sweep()
-   #
-   # systemUtility.transmitpower_usernumber_sweep()
-   #
-   # systemUtility.bandwidth_radius_lambda_sweep()
+   systemUtility.usernumber_lambda_sweep()
+
+   systemUtility.transmitpower_bandwidth_lambda_sweep()
+
+   systemUtility.transmitpower_usernumber_sweep()
+
+   systemUtility.bandwidth_radius_lambda_sweep()
 
 
    systemUtility.radius_vs_utility(100, 800, 50)
